@@ -8,7 +8,7 @@ from django.db import IntegrityError, ProgrammingError # Ajout de ProgrammingErr
 # Configure Django settings module
 # Assurez-vous que 'school_project.settings' correspond au chemin de votre fichier settings.py
 # Exemple: si votre settings.py est dans mon_app/settings.py, ce serait 'my_app.settings'
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'school_project.config.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
 try:
     django.setup()
