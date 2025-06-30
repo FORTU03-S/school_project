@@ -1,0 +1,21 @@
+{# school_project/profiles/templates/profiles/direction_send_message_form.html #}
+
+{% extends "base.html" %}
+{% load crispy_forms_tags %} {# Pour utiliser crispy forms si vous l'avez configuré #}
+
+{% block content %}
+    <h1 class="mb-4">{{ title }}</h1>
+
+    {% if target_audience %}
+        <p>Vous êtes sur le point d'envoyer un message à <strong>{{ target_audience }}</strong>.</p>
+    {% elif student %}
+        <p>Vous êtes sur le point d'envoyer un message au parent de <strong>{{ student.full_name }}</strong> ({{ parent_user.full_name }}).</p>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form|crispy }} {# Affiche le formulaire avec crispy forms #}
+        <button type="submit" class="btn btn-success mt-3">Envoyer le Message</button>
+        <a href="{% url 'profiles:direction_send_notification' %}" class="btn btn-secondary mt-3">Annuler</a>
+    </form>
+{% endblock %}

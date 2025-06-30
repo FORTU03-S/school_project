@@ -1,0 +1,30 @@
+{# school_project/profiles/templates/profiles/parent_dashboard.html #}
+{% extends 'base.html' %}
+
+{% block title %}Tableau de Bord Parent{% endblock %}
+
+{% block content %}
+    <div class="content-section">
+        <h1>Tableau de Bord du Parent : {{ user.username }}</h1>
+        <p>Bienvenue dans votre espace parent. Ici vous trouverez les informations sur vos enfants, leurs notes, présences, etc.</p>
+
+        <div class="dashboard-grid">
+            <div class="dashboard-card">
+                <h3>Mes Enfants</h3>
+                <p>Consulter les profils et les classes de vos enfants.</p>
+                <a href="#" class="button">Voir mes enfants</a>
+            </div>
+            <div class="dashboard-card">
+                <h3>Notes et Rapports</h3>
+                <p>Accéder aux bulletins de notes et aux rapports d'évaluation.</p>
+                <a href="#" class="button secondary">Voir les notes</a>
+            </div>
+            <div class="dashboard-card">
+                <h3>Présences</h3>
+                <p>Suivre l'assiduité de vos enfants en classe.</p>
+                <a href="#" class="button">Voir les présences</a>
+            </div>
+            {# ... Ajoutez d'autres cartes pour les paiements, notifications, etc. ... #}
+        </div>
+    </div>
+{% endblock content %}

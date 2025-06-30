@@ -1,0 +1,64 @@
+{# profiles/templates/profiles/direction_send_notification.html #}
+
+{% extends 'base.html' %}
+{% load crispy_forms_tags %} {# Si vous utilisez django-crispy-forms, sinon retirez cette ligne et ajustez le rendu du formulaire #}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+    <div class="container mt-4">
+        <h1 class="mb-4">{{ title }}</h1>
+
+        {% comment %} Affichage des messages (success, error, etc.) {% endcomment %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post" novalidate> {# novalidate désactive la validation HTML5 par défaut pour laisser Django faire #}
+                    {% csrf_token %}
+                    
+                    {# Rendre le formulaire avec crispy-forms, si installé #}
+                    {% if form.instance.recipient_type == 'CLASS' %}
+                        {# Si le destinataire est déjà CLASS, assurez-vous que target_class est visible #}
+                        {{ form|crispy }} 
+                    {% else %}
+                        {# Sinon, rendre tout le formulaire normalement et laisser JS gérer la visibilité #}
+                        {{ form|crispy }}
+                    {% endif %}
+                    
+                    <button type="submit" class="btn btn-primary mt-3">Envoyer la Notification</button>
+                    <a href="{% url 'profiles:direction_dashboard' %}" class="btn btn-secondary mt-3">Annuler</a>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {# Script JavaScript pour montrer/cacher le champ target_class #}
+    <script>
+        function toggleTargetClassField(selectElement) {
+            const targetClassDiv = document.getElementById('div_id_target_class'); // ID généré par crispy-forms
+            if (targetClassDiv) {
+                if (selectElement.value === 'CLASS') {
+                    targetClassDiv.style.display = 'block';
+                } else {
+                    targetClassDiv.style.display = 'none';
+                }
+            }
+        }
+
+        // Appeler la fonction au chargement de la page pour gérer l'état initial
+        document.addEventListener('DOMContentLoaded', function() {
+            const recipientTypeSelect = document.getElementById('id_recipient_type');
+            if (recipientTypeSelect) {
+                toggleTargetClassField(recipientTypeSelect);
+            }
+        });
+    </script>
+{% endblock content %}

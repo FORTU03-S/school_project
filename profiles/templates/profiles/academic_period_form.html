@@ -1,0 +1,28 @@
+{# school_project/profiles/templates/profiles/academic_period_form.html #}
+
+{% extends "base.html" %}
+{% load crispy_forms_tags %} {# Pour un affichage stylisé du formulaire avec crispy forms #}
+
+{% block content %}
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h1 class="mb-0">{% if form.instance.pk %}Modifier la Période Académique{% else %}Ajouter une Nouvelle Période Académique{% endif %}</h1>
+                    </div>
+                    <div class="card-body">
+                        <form method="post">
+                            {% csrf_token %}
+                            {{ form|crispy }} {# Affiche le formulaire Django en utilisant crispy forms #}
+                            <button type="submit" class="btn btn-success mt-3">
+                                {% if form.instance.pk %}Enregistrer les Modifications{% else %}Ajouter la Période{% endif %}
+                            </button>
+                            <a href="{% url 'profiles:direction_dashboard' %}" class="btn btn-secondary mt-3">Annuler</a> {# Retourne au tableau de bord de direction #}
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

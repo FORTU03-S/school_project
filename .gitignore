@@ -1,0 +1,21 @@
+# Environnement virtuel Python
+venv/
+.venv/
+env/
+
+# Fichiers compilés Python
+*.pyc
+__pycache__/
+
+# Fichiers de base de données SQLite (si vous en utilisez une locale)
+db.sqlite3
+
+# Fichiers de configuration sensibles (variables d'environnement)
+.env
+
+# Fichiers de l'IDE VS Code
+.vscode/
+
+# Fichiers générés par le système d'exploitation
+.DS_Store # macOS
+Thumbs.db # Windows

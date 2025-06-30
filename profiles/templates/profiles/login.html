@@ -1,0 +1,57 @@
+{% extends 'base.html' %} {# Assurez-vous que le chemin vers votre base.html est correct #}
+{% load static %}
+{% load widget_tweaks %}
+{% block title %}Connexion{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5"> {# Ajout de mb-5 pour un peu de marge en bas #}
+    <div class="row justify-content-center">
+        <div class="col-md-7 col-lg-6"> {# Taille ajustée pour un meilleur équilibre #}
+            <div class="card shadow-lg border-0 rounded-lg"> {# Plus d'ombre et bords arrondis #}
+                <div class="card-header bg-primary text-white text-center py-4 rounded-top-lg"> {# Padding et arrondis #}
+                    <h3 class="mb-0 fw-bold">Connectez-vous à votre compte</h3> {# Texte plus fort #}
+                </div>
+                <div class="card-body p-5"> {# Plus de padding interne #}
+                    {# Affichage des erreurs non liées aux champs du formulaire #}
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger" role="alert">
+                            {% for error in form.non_field_errors %}
+                                <p class="mb-0">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label fw-bold">{{ field.label }}</label> {# Label en gras #}
+                                {{ field | add_class:"form-control form-control-lg" }} {# Ajout de classes Bootstrap #}
+                                {% if field.help_text %}
+                                    <div class="form-text text-muted">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div> {# Marge en haut #}
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        <div class="d-grid gap-2 mt-4"> {# Marge en haut #}
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill">Se connecter</button> {# Bouton pilule #}
+                        </div>
+                    </form>
+
+                    <div class="text-center mt-4"> {# Marge en haut #}
+                        <p class="mb-2">
+                            <a href="{% url 'profiles:password_reset' %}" class="text-decoration-none text-info fw-bold">Mot de passe oublié ?</a> {# Lien stylisé #}
+                        </p>
+                        <hr class="my-3"> {# Ligne de séparation #}
+                        <p class="mb-0 text-muted">
+                           {# Pas encore de compte ? <a href="{% url 'profiles:register_parent' %}" class="text-decoration-none text-success fw-bold">Inscrivez-vous ici</a>#} {# Lien stylisé #}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

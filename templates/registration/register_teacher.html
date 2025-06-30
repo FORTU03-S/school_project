@@ -1,0 +1,18 @@
+{# school_project/profiles/templates/profiles/register_teacher.html #}
+{% extends 'base.html' %}
+
+{% block title %}Inscription Enseignant{% endblock %}
+
+{% block content %}
+    <div class="auth-container">
+        <h1>Inscription Enseignant</h1>
+        <form method="post">
+            {% csrf_token %}
+            {# Ici ira le formulaire d'inscription Enseignant une fois défini dans forms.py #}
+            {# {{ form.as_p }} #}
+            <p>Formulaire d'inscription pour les enseignants à venir.</p> {# Message temporaire #}
+            <button type="submit">S'inscrire</button>
+        </form>
+        <p class="alt-link">Déjà un compte ? <a href="{% url 'login' %}">Connectez-vous</a></p>
+    </div>
+{% endblock content %}

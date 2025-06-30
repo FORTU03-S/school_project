@@ -1,0 +1,38 @@
+{# school_project/school/templates/school/student_enroll_course.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <p>Vous inscrivez l'étudiant : <strong>{{ student.first_name }} {{ student.last_name }}</strong> (ID: {{ student.student_id_code }})</p>
+    {% if active_academic_period %}
+        <p>Période Académique Active : <strong>{{ active_academic_period.name }}</strong> (du {{ active_academic_period.start_date|date:"d M Y" }} au {{ active_academic_period.end_date|date:"d M Y" }})</p>
+    {% else %}
+        <div class="alert alert-warning">Aucune période académique active n'est définie pour votre école.</div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">Inscrire l'étudiant</button>
+                <a href="{% url 'student_detail' student.pk %}" class="btn btn-secondary">Annuler</a>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

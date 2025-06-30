@@ -1,0 +1,61 @@
+{% extends 'base.html' %} {# Assurez-vous d'avoir un template de base approprié #}
+{% load static %} {# Pour charger les fichiers statiques comme CSS/JS si besoin #}
+{% load crispy_forms_tags %} {# Si vous utilisez django-crispy-forms pour un meilleur rendu #}
+
+{% block title %}Ajouter/Modifier une Classe{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">{% if form.instance.pk %}Modifier une Classe{% else %}Ajouter une Nouvelle Classe{% endif %}</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data"> {# Ne pas oublier enctype pour les uploads de fichiers si vous en avez un jour #}
+                        {% csrf_token %} {# Très important pour la sécurité de Django #}
+
+                        {# Méthode 1: Utiliser crispy-forms (recommandé si installé) #}
+                        {# Si vous utilisez django-crispy-forms, c'est la manière la plus simple d'afficher le formulaire #}
+                        {{ form|crispy }}
+
+                        {# Méthode 2: Afficher les champs manuellement (si crispy-forms n'est pas utilisé) #}
+                        {# Vous pouvez décommenter et adapter ceci si vous ne voulez pas utiliser crispy-forms #}
+                        {#
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        #}
+
+                        {# Afficher les erreurs non-champ (erreurs générales du formulaire) #}
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg mt-3">
+                                {% if form.instance.pk %}Mettre à jour{% else %}Créer la Classe{% endif %}
+                            </button>
+                           {# <a href="{% url 'profiles:class_list' %}" class="btn btn-outline-secondary mt-2">Annuler</a>#} {# Ajustez l'URL si nécessaire #}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

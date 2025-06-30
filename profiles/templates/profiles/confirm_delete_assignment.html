@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ title }}</h2>
+    <div class="alert alert-warning" role="alert">
+        Êtes-vous sûr de vouloir supprimer l'assignation de classe suivante ?
+        <br>
+        <strong>Enseignant :</strong> {{ assignment.teacher.get_full_name|default:assignment.teacher.username }}
+        <br>
+        <strong>Classe :</strong> {{ assignment.classe.name }}
+        <br>
+        <strong>Période :</strong> {{ assignment.academic_period.name }}
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Confirmer la suppression</button>
+        <a href="{% url 'profiles:direction_manage_class_assignments' %}" class="btn btn-secondary">Annuler</a>
+    </form>
+</div>
+{% endblock %}

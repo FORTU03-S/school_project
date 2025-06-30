@@ -1,0 +1,243 @@
+{% extends 'base.html' %} {# Assurez-vous que le chemin vers votre base.html est correct #}
+
+{% load static %} {# Pour charger des fichiers statiques comme le CSS ou JS si vous en avez #}
+
+{% block title %}Tableau de Bord Comptable{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="text-center mb-4">Tableau de Bord Comptable</h1>
+
+    {% if request.user.is_authenticated and request.user.user_type in 'ADMIN,ACCOUNTANT,DIRECTION' %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Vue d'ensemble Financière de l'École</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        Bienvenue, {{ request.user.full_name }}. Vous êtes connecté en tant que {{ request.user.get_user_type_display }}.
+                    </p>
+                    <p class="card-text">
+                        Goma, North-Kivu, Democratic Republic of the Congo.
+                        Date et heure actuelles : {{ "now"|date:"l j F Y H:i" }}
+                    </p>
+                    {% if current_school %}
+                        <p class="card-text">
+                            Informations financières pour l'école : <strong>{{ current_school.name }}</strong>
+                        </p>
+                    {% else %}
+                        <p class="card-text">
+                            Aucune école affiliée pour le moment.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Montant Total Payé</div>
+                <div class="card-body">
+                    <h3 class="card-title">{{ total_paid_for_school|floatformat:2 }} $</h3>
+                    <p class="card-text">Total des paiements enregistrés pour cette période/école.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-header">Solde Restant / Montant Dû (Global)</div>
+                <div class="card-body">
+                    <h3 class="card-title">{{ remaining_balance_for_school|floatformat:2 }} $</h3>
+                    <p class="card-text">
+                        Montant restant à percevoir pour la période actuelle.
+                        (Estimation globale basée sur les frais de scolarité définis et les paiements enregistrés).
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr> {# Séparateur #}
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Enregistrer un Nouveau Paiement</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'profiles:accounting_dashboard' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="add_payment" value="true"> {# Champ caché pour identifier l'action #}
+                        {{ payment_form.as_p }}
+                        <button type="submit" class="btn btn-success mt-3">Enregistrer Paiement</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Définir/Modifier les Frais de Scolarité</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'profiles:accounting_dashboard' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="set_tuition_fee" value="true"> {# Champ caché pour identifier l'action #}
+                        {{ tuition_fee_form.as_p }}
+                        <button type="submit" class="btn btn-info mt-3">Définir Frais</button>
+                    </form>
+                    <h6 class="mt-4">Frais de Scolarité Définis :</h6>
+                    {% if tuition_fees_set %}
+                    <ul class="list-group">
+                        {% for fee in tuition_fees_set %}
+                        <li class="list-group-item">
+                            <strong>{{ fee.classe.name }}</strong> ({{ fee.academic_period.name }}): {{ fee.amount|floatformat:2 }} $
+                            <small class="text-muted"> (Défini par: {{ fee.set_by.full_name|default:'N/A' }} le {{ fee.date_set|date:"d M Y" }})</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">Aucun frais de scolarité défini pour cette école.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr> {# Séparateur #}
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Liste des Élèves par Classe</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" action="{% url 'profiles:accounting_dashboard' %}" class="mb-4">
+                        <div class="form-group">
+                            <label for="class_select">Sélectionner une Classe :</label>
+                            <select name="class_id" id="class_select" class="form-control" onchange="this.form.submit()">
+                                <option value="">-- Toutes les Classes --</option>
+                                {% for classe in classes %}
+                                <option value="{{ classe.id }}" {% if classe.id == selected_class_id %}selected{% endif %}>
+                                    {{ classe.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {# Pas besoin de bouton submit si on change avec onchange #}
+                    </form>
+
+                    {% if students_in_selected_class %}
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Nom Complet</th>
+                                    <th>Code Élève</th>
+                                    <th>Classe Actuelle</th>
+                                    <th>Parent</th>
+                                    <th>Actions</th> {# Pour les notifications #}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students_in_selected_class %}
+                                <tr>
+                                    <td>{{ student.full_name }}</td>
+                                    <td>{{ student.student_id_code }}</td>
+                                    <td>{{ student.current_classe.name|default:"Non assignée" }}</td>
+                                    <td>
+                                        {% if student.parent %}
+                                            {{ student.parent.full_name }}
+                                            <br><small>{{ student.parent.phone_number|default:'N/A' }}</small>
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {# Formulaire pour envoyer une notification spécifique à ce parent #}
+                                        <form method="post" action="{% url 'profiles:send_notification' %}" style="display:inline;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="recipient_user_id" value="{{ student.parent.user.id }}">
+                                            <input type="hidden" name="message" value="Rappel : Vérifiez le statut des frais de scolarité de {{ student.full_name }}.">
+                                            <button type="submit" class="btn btn-sm btn-outline-primary" {% if not student.parent %}disabled title="Parent non lié"{% endif %}>
+                                                Notifier Parent
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                        {% if selected_class_id %}
+                            <p class="text-muted">Aucun élève trouvé pour cette classe.</p>
+                        {% else %}
+                            <p class="text-muted">Sélectionnez une classe pour voir les élèves.</p>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr> {# Séparateur #}
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Détail des Derniers Paiements</h5>
+                </div>
+                <div class="card-body">
+                    {% if payments_list %}
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Élève</th>
+                                    <th>Montant Payé</th>
+                                    <th>Date de Paiement</th>
+                                    <th>Statut</th>
+                                    <th>ID Transaction</th>
+                                    <th>Période Académique</th>
+                                    <th>Enregistré par</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in payments_list %}
+                                <tr>
+                                    <td>{{ payment.student.full_name }}</td>
+                                    <td>{{ payment.amount_paid|floatformat:2 }} $</td>
+                                    <td>{{ payment.payment_date|date:"d M Y" }}</td>
+                                    <td>{{ payment.get_payment_status_display }}</td>
+                                    <td>{{ payment.transaction_id|default:"N/A" }}</td>
+                                    <td>{{ payment.academic_period.name }}</td>
+                                    <td>{{ payment.recorded_by.full_name|default:"N/A" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Aucun paiement enregistré pour le moment.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Accès refusé. Vous n'avez pas les autorisations nécessaires pour accéder à ce tableau de bord.
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %} 

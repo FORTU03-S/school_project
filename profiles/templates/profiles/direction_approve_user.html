@@ -1,0 +1,93 @@
+{# school_project/profiles/templates/profiles/direction_approve_user.html #}
+{% extends 'base.html' %} {# S'assure que le template de base est étendu #}
+{% load static %} {# Pour charger les fichiers statiques (CSS, JS) si nécessaire #}
+{% load crispy_forms_tags %} {# Nécessaire si vous utilisez crispy forms pour des champs spécifiques ou un formulaire complet #}
+
+{% block title %}Approuver/Refuser l'Utilisateur - Gestion École{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">Approuver ou Refuser l'Utilisateur</h2>
+                </div>
+                <div class="card-body">
+                    {# Messages Django #}
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    {% if user_to_approve %} {# Assurez-vous que votre vue passe bien 'user_to_approve' au contexte #}
+                        <h5 class="card-title text-center mb-4">
+                            Détails de l'utilisateur : 
+                            <strong>{{ user_to_approve.full_name|default:user_to_approve.username }}</strong>
+                        </h5>
+                        
+                        <dl class="row mb-4"> {# Utilisation de description list pour les détails #}
+                            <dt class="col-sm-4">Nom d'utilisateur :</dt>
+                            <dd class="col-sm-8">{{ user_to_approve.username }}</dd>
+
+                            <dt class="col-sm-4">Email :</dt>
+                            <dd class="col-sm-8">{{ user_to_approve.email }}</dd>
+
+                            <dt class="col-sm-4">Type d'utilisateur :</dt>
+                            <dd class="col-sm-8">{{ user_to_approve.user_type|default:"Non défini" }}</dd>
+
+                            <dt class="col-sm-4">École :</dt>
+                            <dd class="col-sm-8">{% if user_to_approve.school %}{{ user_to_approve.school.name }}{% else %}Non assignée{% endif %}</dd>
+
+                            <dt class="col-sm-4">Statut actuel :</dt>
+                            <dd class="col-sm-8">
+                                {% if user_to_approve.is_active %}
+                                    <span class="badge bg-success">Actif (Approuvé)</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Inactif (En attente d'approbation)</span>
+                                {% endif %}
+                            </dd>
+                        </dl>
+
+                        <hr class="my-4">
+
+                        <h6 class="mb-3">Choisissez une action :</h6>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-center"> {# Boutons côte à côte sur grand écran, empilés sur petit #}
+                            <form method="post" class="mb-2 mb-md-0"> {# mb-2 pour l'espacement sur petit écran #}
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="approve">
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="bi bi-check-circle-fill me-2"></i> Approuver
+                                </button>
+                            </form>
+
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="reject">
+                                <button type="submit" class="btn btn-danger btn-lg">
+                                    <i class="bi bi-x-circle-fill me-2"></i> Refuser
+                                </button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info text-center" role="alert">
+                            Aucun utilisateur sélectionné pour l'approbation ou utilisateur introuvable.
+                        </div>
+                    {% endif %}
+
+                    <div class="text-center mt-4">
+                        <a href="{% url 'profiles:direction_dashboard' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left-circle-fill me-2"></i> Retour au Tableau de Bord
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S'inscrire - SchoolApp</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Copiez/collez ici le bloc <style> de votre home.html */
+        :root {
+            --primary-color: #4CAF50; /* Vert foncé pour la marque */
+            --secondary-color: #8BC34A; /* Vert plus clair */
+            --accent-color: #FFC107; /* Jaune pour les accents */
+            --text-color: #333;
+            --light-text-color: #666;
+            --bg-light: #f0f4f8;
+            --bg-gradient-start: #e0f2f7; /* Dégradé de fond léger */
+            --bg-gradient-end: #f4f8f9;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 40px 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 550px;
+            animation: fadeIn 1s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-weight: 700;
+            font-size: 2.2em;
+        }
+
+        p {
+            color: var(--light-text-color);
+            margin-bottom: 25px;
+            font-size: 1.1em;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 30px;
+        }
+
+        li {
+            margin-bottom: 15px;
+        }
+
+        a {
+            display: inline-block;
+            padding: 12px 25px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.05em;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        a:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Styles spécifiques pour les liens d'inscription si vous voulez les distinguer */
+        a[href*="parent"] { background-color: #4CAF50; }
+        a[href*="teacher"] { background-color: #FF9800; } /* Orange pour enseignant */
+        a[href*="parent"]:hover { background-color: #8BC34A; }
+        a[href*="teacher"]:hover { background-color: #FB8C00; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>S'inscrire sur SchoolApp</h1>
+        <p>Veuillez choisir le type de compte que vous souhaitez créer :</p>
+        <ul>
+            <li><a href="{% url 'register_parent' %}">S'inscrire en tant que Parent</a></li>
+            <li><a href="{% url 'register_teacher' %}">S'inscrire en tant qu'Enseignant</a></li>
+            {# Les rôles Direction et Comptabilité ne sont généralement pas ouverts à l'auto-inscription #}
+        </ul>
+        <p><a href="{% url 'home' %}">Retour à l'accueil</a></p>
+    </div>
+</body>
+</html>

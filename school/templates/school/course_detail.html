@@ -1,0 +1,75 @@
+{# school_project/school/templates/school/course_detail.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            Informations sur le Cours
+        </div>
+        <div class="card-body">
+            <p><strong>Nom du Cours :</strong> {{ course.name }}</p>
+            <p><strong>Description :</strong> {{ course.description|default:"Non spécifiée" }}</p>
+            <p><strong>Crédits :</strong> {{ course.credits }}</p>
+            <p><strong>Classe Associée :</strong> 
+                {% if course.classe %}
+                    <a href="{% url 'classe_detail' course.classe.id %}">{{ course.classe.name }} ({{ course.classe.level }})</a>
+                {% else %}
+                    Non assignée
+                {% endif %}
+            </p>
+            <p><strong>Période Académique :</strong> 
+                {% if course.academic_period %}
+                    {{ course.academic_period.name }}
+                {% else %}
+                    Non spécifiée
+                {% endif %}
+            </p>
+            <p><strong>Enseignants :</strong>
+                {% if course.teachers.all %}
+                    <ul>
+                        {% for teacher in course.teachers.all %}
+                            <li>{{ teacher.get_full_name }} ({{ teacher.email }})</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    Aucun enseignant assigné.
+                {% endif %}
+            </p>
+            {# Vous pouvez ajouter ici la liste des étudiants inscrits à ce cours #}
+            {% comment %}
+            <h5 class="mt-4">Étudiants inscrits :</h5>
+            {% if course.enrollments.all %}
+                <ul>
+                    {% for enrollment in course.enrollments.all %}
+                        <li><a href="{% url 'student_detail' enrollment.student.id %}">{{ enrollment.student.get_full_name }}</a> (Statut: {{ enrollment.get_status_display }})</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Aucun étudiant inscrit à ce cours pour le moment.</p>
+            {% endif %}
+            {% endcomment %}
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+            <a href="{% url 'course_list' %}" class="btn btn-secondary">Retour à la liste</a>
+            {% if request.user.user_type == 'DIRECTION' %}
+                <a href="{% url 'course_update' course.id %}" class="btn btn-warning">Modifier</a>
+                <a href="{% url 'course_delete' course.id %}" class="btn btn-danger">Supprimer</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

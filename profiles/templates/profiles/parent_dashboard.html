@@ -1,0 +1,46 @@
+{# C:\Users\user\school_project\profiles\templates\profiles\parent_dashboard.html #}
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tableau de Bord Parent{% endblock %}
+
+{% block content %}
+    <h1 class="mb-4">Bienvenue sur votre Tableau de Bord Parent, {{ user.first_name }} !</h1>
+    <p class="lead mb-5">Accédez rapidement aux informations essentielles concernant vos enfants.</p>
+
+    {# SECTION DÉDIÉE UNIQUEMENT AUX CARTES DES ENFANTS #}
+    {% if children %}
+        <h2 class="mt-5 mb-3">Mes Enfants et leurs informations</h2>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            {% for child in children %}
+                <div class="col">
+                    <div class="card h-100 shadow-sm border-0">
+                        <div class="card-body text-center">
+                            <i class="fas fa-child fa-3x text-success mb-3"></i>
+                            <h5 class="card-title fw-bold">{{ child.first_name }} {{ child.last_name }}</h5>
+                            <p class="card-text text-muted">Classe: {{ child.current_classe.name|default:"Non assignée" }}</p>
+                            <a href="{% url 'profiles:parent_child_detail' child.id %}" class="btn btn-info btn-sm mt-2 me-2">
+                                <i class="fas fa-user-circle me-1"></i> Profil
+                            </a>
+                            {# Le lien de paiement peut rester ici si vous voulez un accès direct aux paiements par enfant #}
+                            <a href="{% url 'profiles:parent_child_payments' child.id %}" class="btn btn-success btn-sm mt-2">
+                                <i class="fas fa-money-check-alt me-1"></i> Paiements
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="col-12 mt-4">
+            <div class="alert alert-info" role="alert">
+                <h4 class="alert-heading">Aucun enfant trouvé !</h4>
+                <p>Il semble qu'aucun enfant ne soit encore associé à votre compte. Veuillez contacter l'administration de l'école pour assistance.</p>
+            </div>
+        </div>
+    {% endif %}
+
+    {# Note: Le div fermant le row principal de l'ancien code est maintenant supprimé car il contenait les cartes indésirables. #}
+    {# Le bloc content se ferme directement après le bloc conditionnel des enfants. #}
+{% endblock content %}

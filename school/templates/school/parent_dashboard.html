@@ -1,0 +1,79 @@
+{# profiles/parent_dashboard.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <h2 class="mb-4">{{ title }}</h2>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    Vos Informations
+                </div>
+                <div class="card-body">
+                    <p><strong>Nom Complet :</strong> {{ request.user.full_name }}</p>
+                    <p><strong>Email :</strong> {{ request.user.email }}</p>
+                    <p><strong>Téléphone :</strong> {{ request.user.phone_number|default:"Non renseigné" }}</p>
+                    <p><strong>Adresse :</strong> {{ request.user.address|default:"Non renseigné" }}</p>
+                    <p><strong>École Affiliée :</strong> {{ request.user.school.name|default:"Non affiliée" }}</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    Vos Enfants
+                </div>
+                <div class="card-body">
+                    {% if children %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Nom</th>
+                                        <th>Date de Naissance</th>
+                                        <th>Classe</th>
+                                        <th>ID Élève</th>
+                                        <th>Statut</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for child in children %}
+                                    <tr>
+                                        <td>{{ child.full_name }}</td>
+                                        <td>{{ child.date_of_birth|date:"d M Y" }}</td>
+                                        <td>{{ child.current_classe.name|default:"Non assigné" }}</td>
+                                        <td>{{ child.student_id_code }}</td>
+                                        <td>
+                                            {% if child.is_active %}
+                                                <span class="badge bg-success">Actif</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">Inactif</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'parent_child_detail' child.id %}" class="btn btn-sm btn-info">Détails</a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="alert alert-info">Vous n'avez pas encore d'enfants liés à votre compte. Vous pouvez en ajouter lors de l'inscription ou en contactant l'administration.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

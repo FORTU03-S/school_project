@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}Ajouter un Élève et son Parent{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm p-4 mb-4">
+        <h2 class="card-title text-center mb-4">{{ title }}</h2>
+        <p class="text-muted text-center mb-4">Remplissez les formulaires ci-dessous pour ajouter un nouvel élève et créer le compte de son parent.</p>
+
+        {% if messages %}
+            <div class="messages mt-3">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" class="mt-4" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="row">
+                {# Section Informations de l'Élève #}
+                <div class="col-md-6">
+                    <h5 class="mb-3">Informations de l'Élève</h5>
+                    {% for field in student_form %}
+                        {% if field.name != 'student_id_code' and field.name != 'parents' %} {# Exclure student_id_code et parents #}
+                            <div class="mb-3">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <div class="form-text text-muted">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                    {# Champs cachés du student_form (comme student_id_code) #}
+                    {{ student_form.student_id_code }}
+                    {{ student_form.school }} {# Assurez-vous que le champ school est soit visible soit un HiddenInput #}
+                    {{ student_form.is_active }}
+                    {{ student_form.enrollment_date }}
+                </div>
+
+                {# Section Informations du Parent #}
+                <div class="col-md-6">
+                    <h5 class="mb-3">Informations du Parent (Compte Utilisateur)</h5>
+                    {% for field in parent_form %}
+                        <div class="mb-3">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.help_text %}
+                                <div class="form-text text-muted">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% for error in field.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                <button type="submit" class="btn btn-success btn-lg">Ajouter l'Élève et le Parent</button>
+                <a href="{% url 'profiles:list_students' %}" class="btn btn-secondary btn-lg">Annuler</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# Script pour appliquer les classes Bootstrap aux champs de formulaire #}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const formFields = document.querySelectorAll('.container form input, .container form select, .container form textarea');
+        formFields.forEach(field => {
+            if (field.type !== 'checkbox' && field.type !== 'radio' && !field.classList.contains('form-control')) {
+                field.classList.add('form-control');
+            }
+        });
+    });
+</script>
+{% endblock %}

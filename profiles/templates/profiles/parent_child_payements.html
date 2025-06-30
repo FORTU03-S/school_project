@@ -1,0 +1,70 @@
+{# school_project/school/templates/school/student_payments.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Informations sur l'Élève
+        </div>
+        <div class="card-body">
+            <p><strong>Nom Complet :</strong> {{ student.get_full_name }}</p>
+            <p><strong>Classe :</strong> 
+                {% if student.current_class %}
+                    <a href="{% url 'classe_detail' student.current_class.id %}">{{ student.current_class.name }}</a>
+                {% else %}
+                    Non assignée
+                {% endif %}
+            </p>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'list_students' %}" class="btn btn-secondary">Retour à la liste des élèves</a>
+            <a href="{% url 'student_detail' student.id %}" class="btn btn-info">Voir le profil complet</a>
+        </div>
+    </div>
+
+    <h3 class="mb-3">Historique des Paiements</h3>
+    {% if payments %}
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Période Académique</th>
+                    <th>Montant Payé</th>
+                    <th>Date de Paiement</th>
+                    <th>Reçu par</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in payments %}
+                <tr>
+                    <td>{{ payment.academic_period.name }}</td>
+                    <td>{{ payment.amount|floatformat:2 }} $</td>
+                    <td>{{ payment.payment_date|date:"d M Y" }}</td>
+                    <td>{{ payment.received_by.get_full_name }}</td>
+                    <td>{{ payment.description|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <p>Cet élève n'a pas encore de paiements enregistrés.</p>
+    {% endif %}
+
+</div>
+{% endblock %}

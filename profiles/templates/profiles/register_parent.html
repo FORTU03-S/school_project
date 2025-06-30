@@ -1,0 +1,95 @@
+{# profiles/register_parent.html #}
+{% extends "base.html" %} {# Assurez-vous que votre base.html existe et est correctement configuré #}
+{% load crispy_forms_tags %} {# Chargez crispy forms tags #}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">{{ title }}</h3>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        {# Section pour le formulaire du parent #}
+                        <h4 class="mt-4">Informations du Parent</h4>
+                        {{ form|crispy }}
+
+                        {# Section pour les formulaires des enfants #}
+                        <h4 class="mt-4">Informations des Enfants <small class="text-muted">(Vous pouvez ajouter plusieurs enfants)</small></h4>
+                        
+                        {# Utilisez un ID unique pour le conteneur du formset #}
+                        <div id="student-form-container">
+                            {{ student_formset.management_form }}
+                            {% for sf in student_formset %}
+                                <div class="student-formset-row border p-3 mb-3 rounded">
+                                    <h5 class="mb-3">Enfant #{{ forloop.counter }}</h5>
+                                    {{ sf|crispy }}
+                                    {% if sf.instance.pk %} {# Si c'est un formulaire existant, permettre la suppression #}
+                                        <p class="text-end">
+                                            <label for="{{ sf.DELETE.id_for_label }}">
+                                                <input type="checkbox" name="{{ sf.DELETE.html_name }}" id="{{ sf.DELETE.id_for_label }}"> Supprimer cet enfant
+                                            </label>
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <button type="button" class="btn btn-secondary mt-3" id="add-student-form">Ajouter un autre enfant</button>
+
+                        <hr>
+                        <button type="submit" class="btn btn-primary mt-3">S'inscrire</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Script pour gérer l'ajout dynamique de formulaires d'étudiants #}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addStudentFormButton = document.getElementById('add-student-form');
+        const studentFormContainer = document.getElementById('student-form-container');
+        const totalFormsInput = document.querySelector('input[name="student-TOTAL_FORMS"]');
+        
+        let formCount = parseInt(totalFormsInput.value);
+
+        addStudentFormButton.addEventListener('click', function() {
+            const emptyForm = studentFormContainer.querySelector('.student-formset-row:last-of-type').cloneNode(true);
+            
+            // Clear input values in the cloned form
+            emptyForm.querySelectorAll('input, select, textarea').forEach(input => {
+                input.value = '';
+                input.checked = false; // For checkboxes
+            });
+
+            // Update IDs and names for new form
+            emptyForm.innerHTML = emptyForm.innerHTML.replace(/_prefix_/g, formCount);
+            emptyForm.innerHTML = emptyForm.innerHTML.replace(/Enfant #\d+/g, Enfant #${formCount + 1});
+
+            // Remove delete checkbox for new forms
+            const deleteCheckboxContainer = emptyForm.querySelector('p.text-end');
+            if (deleteCheckboxContainer) {
+                deleteCheckboxContainer.remove();
+            }
+
+            studentFormContainer.appendChild(emptyForm);
+            totalFormsInput.value = formCount + 1;
+            formCount++;
+        });
+    });
+</script>
+{% endblock %}

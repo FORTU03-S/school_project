@@ -1,0 +1,61 @@
+{# school_project/school/templates/school/classe_detail.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            Informations sur la Classe
+        </div>
+        <div class="card-body">
+            <p><strong>Nom de la Classe :</strong> {{ classe.name }}</p>
+            <p><strong>Niveau :</strong> {{ classe.level }}</p>
+            <p><strong>Période Académique :</strong> {{ classe.academic_period.name if classe.academic_period else 'N/A' }}</p>
+            <p><strong>Enseignant Titulaire :</strong>
+                {% if classe.homeroom_teacher %}
+                    {{ classe.homeroom_teacher.get_full_name }} ({{ classe.homeroom_teacher.email }})
+                {% else %}
+                    Non assigné
+                {% endif %}
+            </p>
+            <p><strong>École :</strong> {{ classe.school.name }}</p>
+            {# Vous pouvez ajouter d'autres détails de la classe ici si nécessaire #}
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+            <a href="{% url 'classe_list' %}" class="btn btn-secondary">Retour à la liste</a>
+            {% if request.user.user_type == 'DIRECTION' %} {# Seule la direction peut modifier/supprimer #}
+                <a href="{% url 'classe_edit' classe.id %}" class="btn btn-warning">Modifier</a>
+                <a href="{% url 'classe_delete' classe.id %}" class="btn btn-danger">Supprimer</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Vous pouvez ajouter ici des sections pour les élèves de cette classe, les cours, etc. #}
+    {% comment %}
+    {% if students %}
+    <h3 class="mt-4">Élèves de cette classe</h3>
+    <ul>
+        {% for student in students %}
+            <li><a href="{% url 'student_detail' student.id %}">{{ student.get_full_name }}</a></li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="mt-4">Aucun élève inscrit dans cette classe pour le moment.</p>
+    {% endif %}
+    {% endcomment %}
+
+</div>
+{% endblock %}

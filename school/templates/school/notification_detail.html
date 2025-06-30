@@ -1,0 +1,51 @@
+{# school_project/school/templates/school/notification_detail.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            Détails de la Notification
+        </div>
+        <div class="card-body">
+            <p><strong>Sujet :</strong> {{ notification.subject }}</p>
+            <p><strong>Expéditeur :</strong> {{ notification.sender.get_full_name }} ({{ notification.sender.get_user_type_display }})</p>
+            <p><strong>Destinataire :</strong> {{ notification.recipient.get_full_name }} ({{ notification.recipient.get_user_type_display }})</p>
+            <p><strong>Date d'Envoi :</strong> {{ notification.date_sent|date:"d M Y H:i" }}</p>
+            <p><strong>Statut :</strong> 
+                {% if notification.is_read %}
+                    <span class="badge bg-secondary">Lue</span>
+                {% else %}
+                    <span class="badge bg-warning text-dark">Non Lue</span>
+                {% endif %}
+            </p>
+            <hr>
+            <h5>Message :</h5>
+            <p class="card-text">{{ notification.message|linebreaksbr }}</p>
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+            <a href="{% url 'notification_list' %}" class="btn btn-secondary">Retour à la liste</a>
+            {% if notification.recipient == request.user and not notification.is_read %}
+                <a href="{% url 'notification_mark_read' notification.id %}" class="btn btn-success">Marquer comme Lu</a>
+            {% endif %}
+            {% if request.user.user_type == 'DIRECTION' %} {# Seule la direction peut modifier/supprimer une notification existante #}
+                <a href="{% url 'notification_update' notification.id %}" class="btn btn-warning">Modifier</a>
+                <a href="{% url 'notification_delete' notification.id %}" class="btn btn-danger">Supprimer</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

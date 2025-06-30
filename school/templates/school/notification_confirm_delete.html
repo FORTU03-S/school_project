@@ -1,0 +1,33 @@
+{# school_project/school/templates/school/notification_confirm_delete.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">Confirmation de Suppression !</h4>
+        <p>Êtes-vous sûr de vouloir supprimer la notification avec le sujet "<strong>{{ notification.subject }}</strong>" envoyée par "<strong>{{ notification.sender.get_full_name }}</strong>" à "<strong>{{ notification.recipient.get_full_name }}</strong>" ?</p>
+        <p>Cette action est *irréversible*.</p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Confirmer la Suppression</button>
+        <a href="{% url 'notification_detail' notification.pk %}" class="btn btn-secondary">Annuler</a>
+        <a href="{% url 'notification_list' %}" class="btn btn-info">Retour à la liste des notifications</a>
+    </form>
+
+</div>
+{% endblock %}

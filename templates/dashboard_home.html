@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de Bord - SchoolApp</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #8BC34A;
+            --text-color: #333;
+            --light-text-color: #666;
+            --bg-gradient-start: #e0f2f7;
+            --bg-gradient-end: #f4f8f9;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 40px 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 650px;
+            animation: fadeIn 1s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-weight: 700;
+            font-size: 2.5em;
+        }
+
+        p {
+            color: var(--light-text-color);
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .dashboard-sections {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 40px;
+        }
+
+        .dashboard-section {
+            background-color: #f8fcfb;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 25px;
+            flex: 1 1 calc(50% - 20px); /* Deux colonnes sur les grands écrans */
+            max-width: 300px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .dashboard-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .dashboard-section h2 {
+            color: var(--primary-color);
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 10px;
+        }
+
+        .dashboard-section ul {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+
+        .dashboard-section li {
+            margin-bottom: 12px;
+        }
+
+        .dashboard-section a {
+            display: block;
+            padding: 10px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .dashboard-section a:hover {
+            background-color: var(--secondary-color);
+            transform: scale(1.02);
+        }
+
+        /* Styles spécifiques aux rôles pour les couleurs des liens ou sections */
+        .teacher a { background-color: #2196F3; } /* Bleu pour enseignant */
+        .teacher a:hover { background-color: #1976D2; }
+
+        .parent a { background-color: #FF9800; } /* Orange pour parent */
+        .parent a:hover { background-color: #FB8C00; }
+
+        .student a { background-color: #9C27B0; } /* Violet pour étudiant */
+        .student a:hover { background-color: #7B1FA2; }
+
+        .direction a, .accounting a { background-color: #607D8B; } /* Gris pour direction/comptabilité */
+        .direction a:hover, .accounting a:hover { background-color: #455A64; }
+
+        .admin-link {
+            margin-top: 30px;
+            font-size: 1.1em;
+        }
+        .admin-link a {
+            background-color: #E91E63; /* Rose foncé pour admin */
+            padding: 10px 20px;
+            border-radius: 8px;
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+        .admin-link a:hover {
+            background-color: #C2185B;
+        }
+
+        .logout-link {
+            margin-top: 25px;
+            font-size: 0.9em;
+        }
+        .logout-link a {
+            color: var(--light-text-color);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .logout-link a:hover {
+            color: var(--error-color);
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-section {
+                flex: 1 1 100%; /* Une colonne sur les petits écrans */
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bienvenue sur votre Tableau de Bord, {{ user.username }} !</h1>
+        <p>Veuillez choisir votre portail d'accès :</p>
+
+        <div class="dashboard-sections">
+
+            {% if user.is_authenticated %}
+                {% if user.role.name == 'Admin' or user.role.name == 'Direction' %}
+                    <div class="dashboard-section direction">
+                        <h2>Portail Direction</h2>
+                        <ul>
+                            <li><a href="{% url 'direction_dashboard' %}">Accéder au Tableau de Bord Direction</a></li>
+                            {# Ajoutez d'autres liens spécifiques à la direction ici #}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                {% if user.role.name == 'Teacher' %}
+                    <div class="dashboard-section teacher">
+                        <h2>Portail Enseignant</h2>
+                        <ul>
+                            <li><a href="{% url 'teacher_dashboard' %}">Accéder à mon Tableau de Bord Enseignant</a></li>
+                            {# Ajoutez d'autres liens spécifiques à l'enseignant ici #}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                {% if user.role.name == 'Parent' %}
+                    <div class="dashboard-section parent">
+                        <h2>Portail Parent</h2>
+                        <ul>
+                            <li><a href="{% url 'parent_dashboard' %}">Accéder à mon Tableau de Bord Parent</a></li>
+                            {# Ajoutez d'autres liens spécifiques au parent ici #}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                {% if user.role.name == 'STUDENT_PORTAL' %} {# Assurez-vous que le nom du rôle est correct #}
+                    <div class="dashboard-section student">
+                        <h2>Portail Élève</h2>
+                        <ul>
+                            <li><a href="{% url 'student_dashboard' %}">Accéder à mon Tableau de Bord Élève</a></li>
+                            {# Ajoutez d'autres liens spécifiques à l'élève ici #}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                {# Vous pouvez ajouter d'autres rôles comme 'Accounting' ici si nécessaire #}
+                {% if user.role.name == 'Accounting' %}
+                    <div class="dashboard-section accounting">
+                        <h2>Portail Comptabilité</h2>
+                        <ul>
+                            <li><a href="{% url 'accounting_dashboard' %}">Accéder au Tableau de Bord Comptabilité</a></li>
+                        </ul>
+                    </div>
+                {% endif %}
+
+            {% else %}
+                <p>Vous devez être connecté pour accéder à cette page.</p>
+                <p><a href="{% url 'login' %}">Se connecter</a></p>
+            {% endif %}
+
+        </div>
+
+        <div class="logout-link">
+            {% if user.is_authenticated %}
+                <a href="{% url 'logout' %}">Déconnexion</a>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

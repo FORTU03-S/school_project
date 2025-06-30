@@ -1,0 +1,128 @@
+{# C:\Users\user\school_project\profiles\templates\profiles\direction_dashboard.html #}
+
+{% extends 'base.html' %} {# <--- Cette ligne est CRUCIALE ! #}
+
+{% load static %} {# Si besoin #}
+
+{% block title %}Tableau de Bord Direction{% endblock %}
+
+{% block content %}
+
+    <h1 class="mb-4">Tableau de Bord de la Direction</h1>
+    <p class="lead">Bienvenue *{{ user.first_name }}* ! Gérez votre établissement ici.</p>
+
+    <div class="row">
+
+        {# Section Gestion des Utilisateurs et Roles #}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Gestion des Utilisateurs & Rôles</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Gérez les comptes d'utilisateurs, leurs rôles (élèves, enseignants, parents, direction) et leurs accès.</p>
+                    <a href="{% url 'profiles:direction_manage_users' %}" class="btn btn-primary mt-2">Gérer les Utilisateurs</a>
+                </div>
+            </div>
+        </div>
+
+        {# Section Gestion des Attributions de Classes #}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Gestion des Attributions de Classes</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Attribuez les enseignants aux classes et gérez leurs responsabilités d'enseignement.</p>
+                    <a href="{% url 'profiles:direction_manage_class_assignments' %}" class="btn btn-success mt-2">Gérer les Attributions</a>
+                </div>
+            </div>
+        </div>
+
+        {# Section Gestion des Élèves #}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Gestion des Élèves</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Ajoutez de nouveaux élèves et visualisez la liste complète des élèves de l'établissement.</p>
+                    <a href="{% url 'profiles:add_student' %}" class="btn btn-info mt-2 me-2">Ajouter un Élève</a>
+                    <a href="{% url 'profiles:list_students' %}" class="btn btn-outline-info mt-2">Liste des Élèves</a>
+                </div>
+            </div>
+        </div>
+
+        {# Section Gestion des Classes #}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">Gestion des Classes</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Créez de nouvelles classes et consultez la liste de toutes les classes disponibles.</p>
+                    <a href="{% url 'profiles:classe_create' %}" class="btn btn-warning mt-2 me-2">Ajouter une Classe</a>
+                    <a href="{% url 'profiles:class_list' %}" class="btn btn-outline-warning mt-2">Liste des Classes</a>
+                </div>
+            </div>
+        </div>
+
+        {# Section Gestion des Cours #}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">Gestion des Cours</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Créez de nouveaux cours et gérez l'offre pédagogique de l'établissement.</p>
+                    <a href="{% url 'profiles:course_create' %}" class="btn btn-danger mt-2 me-2">Créer un Cours</a>
+                    <a href="{% url 'profiles:course_list' %}" class="btn btn-outline-danger mt-2">Liste des Cours</a>
+                </div>
+            </div>
+        </div>
+        
+        {# NOUVELLE SECTION : Notifications et Communication #}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Notifications & Communication</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Envoyez des messages et des annonces importantes aux parents, élèves et/ou enseignants.</p>
+                    <a href="{% url 'profiles:direction_send_notification' %}" class="btn btn-secondary mt-2">Envoyer une Notification</a>
+                   {# <a href="{% url 'profiles:direction_notification_history' %}" class="btn btn-outline-secondary mt-2">Historique des Notifications</a>#}
+                </div>
+            </div>
+        </div>
+
+        {# NOUVELLE SECTION : Années Académiques et Calendrier #}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Années Académiques & Calendrier</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Gérez les périodes académiques, les jours fériés et les événements importants de l'année.</p>
+                    <a href="{% url 'profiles:academic_period_create' %}" class="btn btn-dark mt-2 me-2">Créer une Année Académique</a>
+                   {# <a href="{% url 'profiles:direction_calendar_management' %}" class="btn btn-outline-dark mt-2">Gérer le Calendrier</a>#}
+                </div>
+            </div>
+        </div>
+
+        {# NOUVELLE SECTION : Archives et Historique #}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-info text-white"> {# Utilisation de bg-info pour varier, ou bg-light si plus discret #}
+                    <h5 class="mb-0">Archives & Rapports Historiques</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Accédez aux données et aux rapports des années académiques précédentes pour consultation.</p>
+                    {#<a href="{% url 'profiles:direction_archive_list' %}" class="btn btn-info mt-2">Consulter les Archives</a>#}
+                    {#<a href="{% url 'profiles:direction_reports' %}" class="btn btn-outline-info mt-2">Rapports Généraux</a>#}
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+{% endblock content %}

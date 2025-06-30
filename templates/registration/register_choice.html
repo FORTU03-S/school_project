@@ -1,0 +1,17 @@
+{# school_project/profiles/templates/profiles/register_choice.html #}
+{% extends 'base.html' %}
+
+{% block title %}S'inscrire - Choisir un rôle{% endblock %}
+
+{% block content %}
+    <div class="auth-container">
+        <h1>S'inscrire à SchoolApp</h1>
+        <p>Quel type d'utilisateur êtes-vous ?</p>
+
+        <div class="registration-choices">
+            <a href="{% url 'register_parent' %}" class="button">Je suis un Parent</a>
+            <a href="{% url 'register_teacher' %}" class="button secondary">Je suis un Enseignant</a>
+            {# Ajoutez d'autres options si nécessaire, comme un élève, etc. #}
+        </div>
+    </div>
+{% endblock content %}

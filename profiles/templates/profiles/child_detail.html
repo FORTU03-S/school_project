@@ -1,0 +1,291 @@
+{# profiles/templates/profiles/child_detail.html #}
+
+{% extends 'base.html' %} {# Assurez-vous que 'base.html' inclut Bootstrap 5 et Font Awesome #}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+    <div class="container mt-5 mb-5">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb bg-light p-2 rounded">
+                <li class="breadcrumb-item"><a href="{% url 'profiles:parent_dashboard' %}" class="text-decoration-none">Tableau de Bord Parent</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Profil de {{ child.full_name }}</li>
+            </ol>
+        </nav>
+
+        <div class="card shadow-lg border-0 mb-4">
+            <div class="card-header bg-primary text-white text-center py-3 rounded-top">
+                <h1 class="card-title mb-0 display-6">Profil de {{ child.first_name }} {{ child.last_name }}</h1>
+                <p class="card-subtitle lead mt-2">{{ child.current_classe.name|default:"Classe non assignée" }}</p>
+            </div>
+            <div class="card-body p-4">
+                <div class="row align-items-center">
+                    <div class="col-md-3 text-center">
+                        {% if child.profile_picture %}
+                            <img src="{{ child.profile_picture.url }}" class="img-fluid rounded-circle shadow-sm" alt="Photo de {{ child.full_name }}" style="width: 150px; height: 150px; object-fit: cover;">
+                        {% else %}
+                            <i class="fas fa-user-circle fa-5x text-muted mb-3"></i>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-9">
+                        <h4 class="text-secondary mb-3">Informations Personnelles</h4>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <strong>Date de Naissance:</strong>
+                                <span>{{ child.date_of_birth|date:"d M Y" }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <strong>Sexe:</strong>
+                                <span>{{ child.get_gender_display }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <strong>Année Scolaire:</strong>
+                                <span>{{ child.academic_year.name|default:"Non spécifiée" }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <strong>Email Associé:</strong>
+                                <span>{{ child.user.email|default:"N/A" }}</span>
+                            </li>
+                            {# Ajoutez d'autres informations pertinentes ici #}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Section des onglets (Tabs) #}
+        <div class="card shadow-lg border-0">
+            <div class="card-header p-0 border-bottom-0">
+                <ul class="nav nav-tabs nav-justified" id="childInfoTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="grades-tab" data-bs-toggle="tab" data-bs-target="#grades" type="button" role="tab" aria-controls="grades" aria-selected="true">
+                            <i class="fas fa-scroll me-2"></i> Notes & Bulletins
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="notifications-tab" data-bs-toggle="tab" data-bs-target="#notifications" type="button" role="tab" aria-controls="notifications" aria-selected="false">
+                            <i class="fas fa-bell me-2"></i> Notifications
+                            {% if notifications|length > 0 %}
+                                <span class="badge bg-danger rounded-pill ms-2">{{ notifications|length }}</span>
+                            {% endif %}
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="disciplinary-tab" data-bs-toggle="tab" data-bs-target="#disciplinary" type="button" role="tab" aria-controls="disciplinary" aria-selected="false">
+                            <i class="fas fa-gavel me-2"></i> Dossier Disciplinaire
+                            {% if disciplinary_records|length > 0 %}
+                                <span class="badge bg-warning text-dark rounded-pill ms-2">{{ disciplinary_records|length }}</span>
+                            {% endif %}
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="attendance-tab" data-bs-toggle="tab" data-bs-target="#attendance" type="button" role="tab" aria-controls="attendance" aria-selected="false">
+                            <i class="fas fa-clipboard-check me-2"></i> Absences & Présences
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments" type="button" role="tab" aria-controls="payments" aria-selected="false">
+                            <i class="fas fa-money-check-alt me-2"></i> Paiements
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body p-4">
+                <div class="tab-content" id="childInfoTabsContent">
+                    {# TAB 1: NOTES ET BULLETINS #}
+                    <div class="tab-pane fade show active" id="grades" role="tabpanel" aria-labelledby="grades-tab">
+                        <h4 class="mb-3 text-info">Notes de {{ child.first_name }}</h4>
+                        {% if grades %}
+                            <div class="table-responsive">
+                                <table class="table table-hover table-striped border">
+                                    <thead class="bg-info text-white">
+                                        <tr>
+                                            <th>Cours</th>
+                                            <th>Évaluation</th>
+                                            <th>Note Obtenue</th>
+                                            <th>Date de l'Évaluation</th>
+                                            <th>Commentaires</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for grade in grades %}
+                                            <tr>
+                                                <td>{{ grade.enrollment.course.name }}</td>
+                                                <td>{{ grade.evaluation.name }}</td>
+                                                <td><span class="badge bg-primary fs-6">{{ grade.score }}</span> / {{ grade.evaluation.max_score }}</td>
+                                                <td>{{ grade.evaluation.date|date:"d M Y" }}</td>
+                                                <td>{{ grade.remarks|default:"N/A" }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning text-center" role="alert">
+                                Aucune note enregistrée pour {{ child.first_name }} pour le moment.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {# TAB 2: NOTIFICATIONS #}
+                    <div class="tab-pane fade" id="notifications" role="tabpanel" aria-labelledby="notifications-tab">
+                        <h4 class="mb-3 text-secondary">Notifications pour {{ child.first_name }}</h4>
+                        {% if notifications %}
+                            <div class="list-group">
+                                {% for notification in notifications %}
+                                    {# Vous pouvez ajouter ici une logique JavaScript si vous voulez filtrer client-side
+                                       les notifications qui mentionnent spécifiquement {{ child.first_name }} ou sa classe.
+                                       Pour l'instant, toutes les notifications du parent sont affichées. #}
+                                    <a href="#" class="list-group-item list-group-item-action flex-column align-items-start mb-2 shadow-sm rounded-3">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h5 class="mb-1 text-primary">{{ notification.subject|default:"Notification" }}</h5>
+                                            <small class="text-muted">{{ notification.timestamp|date:"d M Y H:i" }}</small>
+                                        </div>
+                                        <p class="mb-1">{{ notification.message }}</p>
+                                        {% if notification.sender %}
+                                            <small class="text-muted">De: {{ notification.sender.get_full_name|default:notification.sender.username }}</small>
+                                        {% endif %}
+                                        {# Ajoutez un indicateur "non lu" si vous avez le champ is_read #}
+                                        {% if not notification.is_read %}
+                                            <span class="badge bg-info text-white float-end">Nouveau</span>
+                                        {% endif %}
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info text-center" role="alert">
+                                Aucune notification trouvée pour {{ child.first_name }}.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {# TAB 3: DOSSIER DISCIPLINAIRE #}
+                    <div class="tab-pane fade" id="disciplinary" role="tabpanel" aria-labelledby="disciplinary-tab">
+                        <h4 class="mb-3 text-dark">Dossier Disciplinaire de {{ child.first_name }}</h4>
+                        {% if disciplinary_records %}
+                            <div class="accordion" id="disciplinaryAccordion">
+                                {% for record in disciplinary_records %}
+                                    <div class="accordion-item shadow-sm mb-2">
+                                        <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                                            <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="collapse{{ forloop.counter }}">
+                                                Incident du {{ record.incident_date|date:"d M Y" }} - {{ record.action_taken|default:"Action non spécifiée" }}
+                                            </button>
+                                        </h2>
+                                        <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" aria-labelledby="heading{{ forloop.counter }}" data-bs-parent="#disciplinaryAccordion">
+                                            <div class="accordion-body">
+                                                <p><strong>Description:</strong> {{ record.description }}</p>
+                                                <p><strong>Date de l'incident:</strong> {{ record.incident_date|date:"d M Y" }}</p>
+                                                <p><strong>Action prise:</strong> {{ record.action_taken|default:"Aucune" }}</p>
+                                                <p><strong>Signalé par:</strong> {{ record.reported_by.get_full_name|default:record.reported_by.username }}</p>
+                                                <small class="text-muted">Créé le: {{ record.created_at|date:"d M Y H:i" }}</small><br>
+                                                {% if record.updated_at %}
+                                                    <small class="text-muted">Dernière mise à jour: {{ record.updated_at|date:"d M Y H:i" }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-success text-center" role="alert">
+                                Excellent ! Aucun dossier disciplinaire pour {{ child.first_name }}.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {# TAB 4: ABSENCES ET PRÉSENCES #}
+                    <div class="tab-pane fade" id="attendance" role="tabpanel" aria-labelledby="attendance-tab">
+                        <h4 class="mb-3 text-warning">Absences et Présences de {{ child.first_name }}</h4>
+                        {% if attendances %}
+                            <div class="table-responsive">
+                                <table class="table table-hover table-striped border">
+                                    <thead class="bg-warning text-dark">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Statut</th>
+                                            <th>Raison de l'absence</th>
+                                            <th>Cours</th>
+                                            <th>Enregistré par</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for attendance in attendances %}
+                                            <tr>
+                                                <td>{{ attendance.date|date:"d M Y" }}</td>
+                                                <td>
+                                                    {% if attendance.is_present %}
+                                                        <span class="badge bg-success">Présent</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger">Absent</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ attendance.reason_for_absence|default:"N/A" }}</td>
+                                                <td>{{ attendance.enrollment.course.name|default:"N/A" }}</td>
+                                                <td>{{ attendance.marked_by.get_full_name|default:attendance.marked_by.username }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info text-center" role="alert">
+                                Aucune donnée de présence/absence trouvée pour {{ child.first_name }}.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {# TAB 5: PAIEMENTS #}
+                    <div class="tab-pane fade" id="payments" role="tabpanel" aria-labelledby="payments-tab">
+                        <h4 class="mb-3 text-success">Historique des Paiements de {{ child.first_name }}</h4>
+                        {% if payments %}
+                            <div class="table-responsive">
+                                <table class="table table-hover table-striped border">
+                                    <thead class="bg-success text-white">
+                                        <tr>
+                                            <th>Date du Paiement</th>
+                                            <th>Montant Payé</th>
+                                            <th>Statut</th>
+                                            <th>Période Académique</th>
+                                            <th>Enregistré par</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for payment in payments %}
+                                            <tr>
+                                                <td>{{ payment.payment_date|date:"d M Y" }}</td>
+                                                <td><span class="badge bg-success fs-6">{{ payment.amount_paid }}</span></td>
+                                                <td>
+                                                    {% if payment.payment_status == 'paid' %}
+                                                        <span class="badge bg-success">Payé</span>
+                                                    {% elif payment.payment_status == 'pending' %}
+                                                        <span class="badge bg-warning">En Attente</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger">Impayé</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ payment.academic_period.name|default:"N/A" }}</td>
+                                                <td>{{ payment.recorded_by.get_full_name|default:payment.recorded_by.username }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info text-center" role="alert">
+                                Aucun historique de paiement trouvé pour {{ child.first_name }}.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                </div> {# Fin tab-content #}
+            </div> {# Fin card-body #}
+        </div> {# Fin card shadow #}
+
+        <div class="text-center mt-5 mb-5">
+            <a href="{% url 'profiles:parent_dashboard' %}" class="btn btn-secondary btn-lg shadow-sm">
+                <i class="fas fa-arrow-left me-2"></i> Retour au Tableau de Bord
+            </a>
+        </div>
+    </div> {# Fin container #}
+{% endblock content %}

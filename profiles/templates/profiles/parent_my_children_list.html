@@ -1,0 +1,78 @@
+{# C:\Users\user\school_project\profiles\templates\profiles\parent_my_children_list.html #}
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mes Enfants{% endblock %}
+
+{% block content %}
+    <div class="container py-4">
+        <h1 class="mb-4 text-center text-primary">Bonjour {{ user.first_name }} !</h1>
+        <p class="lead mb-5 text-center text-muted">Voici la liste de vos enfants inscrits dans l'école. Cliquez sur leur profil pour accéder à toutes les informations.</p>
+
+        {% if my_children %}
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                {% for child in my_children %}
+                    <div class="col">
+                        <div class="card h-100 shadow-lg border-0 rounded-3 overflow-hidden">
+                            <div class="card-body p-4 d-flex flex-column align-items-center justify-content-center text-center">
+                                <div class="icon-circle bg-primary-subtle text-primary mb-3">
+                                    <i class="fas fa-child fa-2x"></i>
+                                </div>
+                                <h5 class="card-title text-dark fw-bold mb-1">{{ child.full_name }}</h5>
+                                <p class="card-text text-muted mb-3">Classe: {{ child.current_classe.name|default:"Non assignée" }}</p>
+                                {% if child.registration_number %}
+                                    <p class="card-text text-muted mb-1"><small>N° d'Inscription: {{ child.registration_number }}</small></p>
+                                {% endif %}
+                                {% if child.date_of_birth %}
+                                    <p class="card-text text-muted"><small>Né(e) le: {{ child.date_of_birth|date:"d M Y" }}</small></p>
+                                {% endif %}
+                                <div class="mt-auto pt-3 border-top w-100 text-center">
+                                   {# <a href="{% url 'student_child_detail' child.id %}" class="btn btn-primary btn-lg px-4">#}
+                                        <i class="fas fa-user-circle me-2"></i> Voir le Profil
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="text-center mt-5">
+                {# Si vous voulez un lien vers le tableau de bord "complet" #}
+                <a href="{% url 'profiles:parent_dashboard' %}" class="btn btn-outline-primary btn-lg">
+                    <i class="fas fa-chart-bar me-2"></i> Accéder au Tableau de Bord Global
+                </a>
+            </div>
+        {% else %}
+            <div class="alert alert-info text-center py-5 shadow-sm rounded-3" role="alert">
+                <h4 class="alert-heading display-5 mb-4">Aucun enfant trouvé !</h4>
+                <p class="fs-5">Il semble qu'aucun enfant ne soit actuellement associé à votre compte parent.</p>
+                <p class="fs-5">Veuillez contacter l'administration de l'école pour enregistrer et associer vos enfants.</p>
+                <hr class="my-4">
+                <p class="mb-0 fs-6 text-muted">Nous sommes là pour vous aider à chaque étape.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    {% block extra_head %}
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+        <style>
+            .icon-circle {
+                width: 80px;
+                height: 80px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 20px;
+            }
+            .card {
+                transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            }
+            .card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            }
+        </style>
+    {% endblock %}
+{% endblock content %}

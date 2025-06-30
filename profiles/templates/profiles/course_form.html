@@ -1,0 +1,68 @@
+{# school_project/profiles/templates/profiles/course_form.html #}
+{% extends 'base.html' %} {# Assurez-vous d'avoir un template de base approprié, par exemple base.html #}
+{% load static %} {# Pour charger les fichiers statiques (CSS, JS) si nécessaire #}
+{% load crispy_forms_tags %} {# Nécessite l'installation de django-crispy-forms et crispy_bootstrap5 #}
+
+{% block title %}Ajouter/Modifier un Cours{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">
+                        {% if form.instance.pk %}
+                            Modifier le Cours : {{ form.instance.name }}
+                        {% else %}
+                            Ajouter un Nouveau Cours
+                        {% endif %}
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data"> {# enctype est important si vous avez des uploads de fichiers #}
+                        {% csrf_token %} {# Protection CSRF obligatoire dans Django #}
+
+                        {# Cette ligne rend le formulaire en utilisant django-crispy-forms. #}
+                        {# Assurez-vous que crispy_forms et crispy_bootstrap5 sont configurés dans settings.py. #}
+                        {{ form|crispy }}
+
+                        {# Si vous ne voulez PAS utiliser django-crispy-forms, décommentez le bloc ci-dessous #}
+                        {# et commentez ou supprimez la ligne {{ form|crispy }} #}
+                        {#
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <div class="form-text text-muted">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        #}
+
+                        {# Afficher les erreurs générales du formulaire qui ne sont pas liées à un champ spécifique #}
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg mt-3">
+                                {% if form.instance.pk %}Mettre à jour le Cours{% else %}Créer le Cours{% endif %}
+                            </button>
+                        {# <a href="{% url 'profiles:course_list' %}" class="btn btn-outline-secondary mt-2">Annuler et Retour à la liste des Cours</a>#}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

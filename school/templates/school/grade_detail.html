@@ -1,0 +1,57 @@
+{# school_project/school/templates/school/grade_detail.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            Informations sur la Note
+        </div>
+        <div class="card-body">
+            <p><strong>Élève :</strong> 
+                {% if grade.enrollment.student %}
+                    <a href="{% url 'student_detail' grade.enrollment.student.id %}">{{ grade.enrollment.student.get_full_name }}</a>
+                {% else %}
+                    N/A
+                {% endif %}
+            </p>
+            <p><strong>Cours :</strong> 
+                {% if grade.enrollment.course %}
+                    <a href="{% url 'course_detail' grade.enrollment.course.id %}">{{ grade.enrollment.course.name }}</a>
+                {% else %}
+                    N/A
+                {% endif %}
+            </p>
+            <p><strong>Période Académique :</strong> {{ grade.enrollment.academic_period.name }}</p>
+            <p><strong>Évaluation :</strong> {{ grade.evaluation.name }} (Type: {{ grade.evaluation.get_evaluation_type_display }})</p>
+            <p><strong>Note Obtenue :</strong> {{ grade.score }} / {{ grade.evaluation.max_score }}</p>
+            <p><strong>Pourcentage :</strong> {{ grade.percentage_score|floatformat:2 }}%</p>
+            <p><strong>Noté par :</strong> {{ grade.graded_by.get_full_name }}</p>
+            <p><strong>Date de Notation :</strong> {{ grade.date_graded|date:"d M Y" }}</p>
+            <p><strong>Remarques :</strong> {{ grade.remarks|default:"Aucune" }}</p>
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+            <a href="{% url 'grade_list' %}" class="btn btn-secondary">Retour à la liste</a>
+            {% if request.user.user_type == 'DIRECTION' or (request.user.user_type == 'TEACHER' and grade.graded_by == request.user) %}
+                <a href="{% url 'grade_update' grade.id %}" class="btn btn-warning">Modifier</a>
+            {% endif %}
+            {% if request.user.user_type == 'DIRECTION' %}
+                <a href="{% url 'grade_delete' grade.id %}" class="btn btn-danger">Supprimer</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

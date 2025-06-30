@@ -1,0 +1,60 @@
+{# school_project/school/templates/school/attendance_detail.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            Informations sur l'Enregistrement de Présence
+        </div>
+        <div class="card-body">
+            <p><strong>Élève :</strong> 
+                {% if attendance.enrollment.student %}
+                    <a href="{% url 'student_detail' attendance.enrollment.student.id %}">{{ attendance.enrollment.student.get_full_name }}</a>
+                {% else %}
+                    N/A
+                {% endif %}
+            </p>
+            <p><strong>Cours :</strong> 
+                {% if attendance.enrollment.course %}
+                    <a href="{% url 'course_detail' attendance.enrollment.course.id %}">{{ attendance.enrollment.course.name }}</a>
+                {% else %}
+                    N/A
+                {% endif %}
+            </p>
+            <p><strong>Date :</strong> {{ attendance.date|date:"d M Y" }}</p>
+            <p><strong>Statut :</strong> 
+                {% if attendance.is_present %}
+                    <span class="badge bg-success">Présent</span>
+                {% else %}
+                    <span class="badge bg-danger">Absent</span>
+                {% endif %}
+            </p>
+            <p><strong>Raison de l'Absence :</strong> {{ attendance.reason_for_absence|default:"N/A" }}</p>
+            <p><strong>Marqué par :</strong> {{ attendance.marked_by.get_full_name }}</p>
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+            <a href="{% url 'attendance_list' %}" class="btn btn-secondary">Retour à la liste</a>
+            {% if request.user.user_type == 'DIRECTION' or (request.user.user_type == 'TEACHER' and attendance.marked_by == request.user) %}
+                <a href="{% url 'attendance_update' attendance.id %}" class="btn btn-warning">Modifier</a>
+            {% endif %}
+            {% if request.user.user_type == 'DIRECTION' %}
+                <a href="{% url 'attendance_delete' attendance.id %}" class="btn btn-danger">Supprimer</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{# school_project/school/templates/school/school_detail.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            Informations Générales de l'École
+        </div>
+        <div class="card-body">
+            <p><strong>Nom de l'École :</strong> {{ school.name }}</p>
+            <p><strong>Adresse :</strong> {{ school.address }}</p>
+            <p><strong>Téléphone :</strong> {{ school.phone_number }}</p>
+            <p><strong>Email :</strong> {{ school.email }}</p>
+            <p><strong>Date de Création :</strong> {{ school.date_founded|date:"d M Y" }}</p>
+            <p><strong>Mission :</strong> {{ school.mission }}</p>
+            <p><strong>Vision :</strong> {{ school.vision }}</p>
+            {# Vous pouvez ajouter ici d'autres détails de l'école si vous en avez dans le modèle #}
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+            {# Puisqu'on est sur les détails de SA propre école, la redirection vers la liste des écoles n'est pas tjrs pertinente #}
+            {# Mais on peut ajouter un lien pour modifier les détails de l'école si vous créez une vue 'school_update' #}
+            {% if request.user.user_type == 'DIRECTION' %}
+                <a href="{% url 'school_update' school.id %}" class="btn btn-warning">Modifier les détails de l'école</a>
+            {% endif %}
+            {# Ou juste un bouton de retour vers le tableau de bord de la direction #}
+            <a href="{% url 'home' %}" class="btn btn-secondary">Retour au Tableau de Bord</a> {# Remplacez 'home' si vous avez une URL spécifique pour le dashboard direction #}
+        </div>
+    </div>
+
+    {# Vous pouvez ajouter ici des sections pour lister les classes, les enseignants, les élèves de cette école #}
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    Statistiques Rapides
+                </div>
+                <div class="card-body">
+                    <p><strong>Nombre de classes :</strong> {{ school.classes.count }}</p>
+                    <p><strong>Nombre d'élèves :</strong> {{ school.students.count }}</p> {# Assurez-vous d'avoir related_name='students' sur Student.school #}
+                    {# <p><strong>Nombre d'enseignants :</strong> {{ teachers_count }}</p> #}
+                </div>
+            </div>
+        </div>
+        {# Ajoutez d'autres cartes ou informations si nécessaire #}
+    </div>
+
+</div>
+{% endblock %}

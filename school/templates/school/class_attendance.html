@@ -1,0 +1,109 @@
+{# school_project/school/templates/school/class_attendance.html #}
+{% extends "base.html" %}
+{% load custom_filters %}
+
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Informations sur la Classe et la Date
+        </div>
+        <div class="card-body">
+            <p><strong>Classe :</strong> <a href="{% url 'classe_detail' classe.id %}">{{ classe.name }}</a></p>
+            <p><strong>Date :</strong> {{ attendance_date|date:"d M Y" }}</p>
+            <p><strong>Période Académique :</strong> {{ classe.academic_period.name }}</p>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'classe_detail' classe.id %}" class="btn btn-secondary">Retour à la Classe</a>
+            <input type="date" id="attendanceDateInput" class="form-control d-inline-block w-auto ms-3" value="{{ attendance_date|date:'Y-m-d' }}">
+            <button onclick="goToDate()" class="btn btn-info ms-2">Changer la Date</button>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered table-hover">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Élève</th>
+                        {% for course in courses_in_class %}
+                            <th>{{ course.name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students_in_class %}
+                    <tr>
+                        <td><a href="{% url 'student_detail' student.id %}">{{ student.get_full_name }}</a></td>
+                        {% for course in courses_in_class %}
+                            <td>
+                                {% comment %} Trouver l'inscription de cet élève à ce cours dans cette classe/période {% endcomment %}
+                                {% with enrollment=student.enrollments.filter(course=course, course_classe=classe, course_academic_period=classe.academic_period).first %}
+                                {% if enrollment %}
+                                    {% comment %} Créer une clé unique pour l'enregistrement de présence {% endcomment %}
+                                    {% with attendance_key=enrollment.student.pk|stringformat:"%s,"|add:enrollment.course.pk|stringformat:"%s" %}
+                                    {% with current_attendance=attendance_map|get_item:attendance_key %}
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" role="switch"
+                                                   id="is_present_{{ enrollment.pk }}"
+                                                   name="is_present_{{ enrollment.pk }}"
+                                                   {% if current_attendance and current_attendance.is_present %}checked{% endif %}>
+                                            <label class="form-check-label" for="is_present_{{ enrollment.pk }}">Présent</label>
+                                        </div>
+                                        <div class="mb-1">
+                                            <input type="text" class="form-control form-control-sm"
+                                                   placeholder="Raison absence"
+                                                   name="reason_for_absence_{{ enrollment.pk }}"
+                                                   value="{% if current_attendance and not current_attendance.is_present %}{{ current_attendance.reason_for_absence }}{% endif %}">
+                                        </div>
+                                    {% endwith %}
+                                    {% endwith %}
+                                {% else %}
+                                    <span class="text-muted">Non Inscrit</span>
+                                {% endif %}
+                                {% endwith %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn btn-success mt-3">Enregistrer les Présences</button>
+    </form>
+</div>
+
+<script>
+    function goToDate() {
+        const dateInput = document.getElementById('attendanceDateInput');
+        const selectedDate = dateInput.value;
+        if (selectedDate) {
+            window.location.href = "{% url 'class_attendance' classe.pk 'YYYY-MM-DD' %}".replace('YYYY-MM-DD', selectedDate);
+        } else {
+            alert('Veuillez sélectionner une date.');
+        }
+    }
+</script>
+
+{% comment %}
+    Helper filter for templates (needs to be defined in a custom template tags file)
+    Usage: {% load your_custom_filters %} ... {{ dictionary|get_item:key }}
+{% endcomment %}
+{% load custom_filters %} {# Vous devrez créer ce fichier de tags personnalisé #}
+
+{% endblock %}

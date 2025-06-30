@@ -1,0 +1,37 @@
+{# C:\Users\user\school_project\templates\home.html #}
+
+{% extends 'base.html' %} {# <--- Cette ligne est CRUCIALE et doit être la première ! #}
+
+{% load static %} {# Si vous utilisez des fichiers statiques spécifiques à home.html #}
+
+{% block title %}Accueil - Mon École{% endblock %} {# Rempli le bloc title de base.html #}
+
+{% block content %} {# Rempli le bloc content de base.html #}
+
+    <div class="p-5 mb-4 bg-light rounded-3">
+        <div class="container-fluid py-5">
+            <h1 class="display-5 fw-bold">Bienvenue à Mon École !</h1>
+            <p class="col-md-8 fs-4">La plateforme qui facilite la gestion de votre vie scolaire. Connectez-vous ou inscrivez-vous pour accéder à vos services.</p>
+            <a class="btn btn-primary btn-lg" href="{% url 'login' %}" role="button">Se connecter</a>
+            <a class="btn btn-secondary btn-lg" href="{% url 'register_choice' %}" role="button">S'inscrire</a>
+        </div>
+    </div>
+
+    <div class="row align-items-md-stretch">
+        <div class="col-md-6">
+            <div class="h-100 p-5 text-white bg-dark rounded-3">
+                <h2>Pour les Parents</h2>
+                <p>Suivez les progrès de vos enfants, consultez les notes et gérez les paiements en toute simplicité.</p>
+                <a class="btn btn-outline-light" href="{% url 'register_parent' %}">Inscrivez-vous en tant que Parent</a>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="h-100 p-5 bg-light border rounded-3">
+                <h2>Pour les Enseignants</h2>
+                <p>Gérez les classes, les évaluations, les présences et communiquez avec les parents efficacement.</p>
+                <a class="btn btn-outline-secondary" href="{% url 'register_teacher' %}">Inscrivez-vous en tant qu'Enseignant</a>
+            </div>
+        </div>
+    </div>
+
+{% endblock content %}

@@ -1,0 +1,111 @@
+{# C:\Users\user\school_project\profiles\templates\profiles\direction_manage_users.html #}
+
+{% extends 'base.html' %} {# Assurez-vous d'avoir un base.html pour l'héritage #}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+    <p class="lead">Gérez les utilisateurs de l'application. Approuvez les nouveaux comptes et modifiez les informations.</p>
+
+    {% if messages %}
+        <div class="messages mt-3">
+            {% for message in messages %}
+                <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {# --- Section de filtrage --- #}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Filtrer les Utilisateurs</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                {# Champ de filtre par Type d'utilisateur #}
+                <div class="col-md-4">
+                    <label for="id_user_type" class="form-label">Type d'utilisateur:</label>
+                    <select class="form-select" id="id_user_type" name="user_type">
+                        <option value="">Tous</option>
+                        {% for choice_value, choice_label in user_type_choices %}
+                            <option value="{{ choice_value }}" {% if request.GET.user_type == choice_value %}selected{% endif %}>
+                                {{ choice_label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {# Champ de filtre par Statut d'approbation #}
+                <div class="col-md-4">
+                    <label for="id_is_approved" class="form-label">Statut d'approbation:</label>
+                    <select class="form-select" id="id_is_approved" name="is_approved">
+                        <option value="">Tous</option>
+                        <option value="true" {% if request.GET.is_approved == 'true' %}selected{% endif %}>Approuvé</option>
+                        <option value="false" {% if request.GET.is_approved == 'false' %}selected{% endif %}>Non Approuvé</option>
+                    </select>
+                </div>
+
+                {# Champ de recherche textuelle (username, first_name, last_name) #}
+                <div class="col-md-4">
+                    <label for="id_search_query" class="form-label">Rechercher:</label>
+                    <input type="text" class="form-control" id="id_search_query" name="q" placeholder="prénom, nom" value="{{ request.GET.q|default:'' }}">
+                </div>
+
+                {# Boutons d'action pour le filtre #}
+                <div class="col-md-12 text-end">
+                    <button type="submit" class="btn btn-primary me-2">Appliquer les Filtres</button>
+                    <a href="{% url 'profiles:direction_manage_users' %}" class="btn btn-outline-secondary">Réinitialiser les Filtres</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    {# --- Fin Section de filtrage --- #}
+
+    <div class="table-responsive mt-4">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                   {# <th>Nom d'utilisateur</th>#}
+                    <th>Type d'utilisateur</th>
+                    <th>Approuvé</th>
+                    <th>ID Enseignant</th>
+                    <th>Prénom</th>
+                    <th>Nom</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user_obj in users %}
+                <tr>
+                    <td>{{ user_obj.username }}</td>
+                    <td>{{ user_obj.get_user_type_display }}</td>
+                    <td>
+                        {% if user_obj.is_approved %}
+                            <span class="badge bg-success">Oui</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Non</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user_obj.teacher_id_code|default:"N/A" }}</td>
+                    <td>{{ user_obj.first_name }}</td>
+                    <td>{{ user_obj.last_name }}</td>
+                    <td>
+                        <a href="{% url 'profiles:direction_approve_user' user_obj.id %}" class="btn btn-sm btn-primary">Modifier</a>
+                        {# Vous pouvez ajouter d'autres actions comme supprimer si nécessaire #}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center">Aucun utilisateur trouvé avec les critères de recherche.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

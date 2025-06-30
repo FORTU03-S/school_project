@@ -1,0 +1,78 @@
+{# school_project/profiles/templates/profiles/course_list.html #}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if classe %}Cours pour {{ classe.name }}{% else %}Liste de Tous les Cours{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            {% if classe %}
+                Cours de la Classe : {{ classe.name }}
+            {% else %}
+                Liste de Tous les Cours
+            {% endif %}
+        </h1>
+        <a href="{% url 'profiles:course_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Ajouter un Nouveau Cours
+        </a>
+    </div>
+
+    {# Ajoutez un sélecteur de classe si vous voulez filtrer les cours depuis cette page #}
+    <div class="mb-3">
+        <label for="classSelector" class="form-label">Filtrer par Classe :</label>
+        <select id="classSelector" class="form-select" onchange="location = this.value;">
+            <option value="{% url 'profiles:course_list' %}" {% if not classe %}selected{% endif %}>Toutes les Classes</option>
+            {% for c in all_classes %}
+                <option value="{% url 'profiles:class_courses' class_id=c.pk %}" {% if classe and c.pk == classe.pk %}selected{% endif %}>
+                    {{ c.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    {% if courses %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover shadow-sm">
+            <thead class="bg-primary text-white">
+                <tr>
+                    <th scope="col">Nom du Cours</th>
+                    <th scope="col">Code</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for course in courses %}
+                <tr>
+                    <td>{{ course.name }}</td>
+                    <td>{{ course.code }}</td>
+                    <td>{{ course.description|default:"N/A" }}</td>
+                    <td>
+                        <a href="{% url 'profiles:course_update' pk=course.pk %}" class="btn btn-sm btn-info me-2" title="Modifier">
+                            <i class="fas fa-edit"></i> Modifier
+                        </a>
+                        <a href="{% url 'profiles:course_delete' pk=course.pk %}" class="btn btn-sm btn-danger" title="Supprimer">
+                            <i class="fas fa-trash-alt"></i> Supprimer
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        {% if classe %}
+            Aucun cours n'est associé à la classe *{{ classe.name }}*.
+        {% else %}
+            Aucun cours n'a été trouvé.
+        {% endif %}
+        <a href="{% url 'profiles:course_create' %}" class="alert-link">Ajoutez le premier !</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

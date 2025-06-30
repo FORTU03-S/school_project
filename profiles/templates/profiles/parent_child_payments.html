@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load static %} {# Si vous utilisez des fichiers statiques personnalisés #}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <h2 class="mb-4 text-center">{{ title }}</h2>
+
+            <a href="{% url 'parent_dashboard' %}" class="btn btn-secondary btn-sm mb-4">
+                <i class="fas fa-arrow-left me-2"></i> Retour au Tableau de Bord
+            </a>
+            <a href="{% url 'child_detail' child.id %}" class="btn btn-info btn-sm mb-4 ms-2">
+                <i class="fas fa-user-graduate me-2"></i> Retour aux Détails de {{ child.full_name }}
+            </a>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-money-check-alt me-2"></i> Historique des Paiements de {{ child.full_name }}</h5>
+                    <h5 class="mb-0">Total Payé: <span class="badge bg-light text-success">{{ total_paid|floatformat:2 }} $</span></h5>
+                    {# Ici vous pourriez ajouter le "Montant total des frais" si vous avez cette donnée dans le contexte #}
+                    {# Par exemple: <h5 class="mb-0">Frais Totaux: <span class="badge bg-light text-primary">{{ total_fees_due|floatformat:2 }} $</span></h5> #}
+                    {# Et le "Solde Dû" si vous avez une logique pour le calculer: #}
+                    {# <h5 class="mb-0">Solde Dû: <span class="badge bg-light text-danger">{{ balance_due|floatformat:2 }} $</span></h5> #}
+                </div>
+                <div class="card-body p-0">
+                    {% if payments %}
+                        <ul class="list-group list-group-flush">
+                            {% for payment in payments %}
+                                <li class="list-group-item d-flex flex-column align-items-start border-bottom">
+                                    <div class="w-100 d-flex justify-content-between align-items-center mb-1">
+                                        <div>
+                                            <h6 class="mb-0 fw-bold">Paiement de {{ payment.amount_paid|floatformat:2 }} $</h6>
+                                            <small class="text-muted">
+                                                Pour la période : *{{ payment.academic_period.name }}* {# CORRECTION: Accès direct au nom du ForeignKey #}
+                                                {% if payment.transaction_id %} - ID Trans. : {{ payment.transaction_id }}{% endif %}
+                                            </small>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge {% if payment.payment_status == 'FULL' %}bg-success{% elif payment.payment_status == 'OVERDUE' %}bg-danger{% elif payment.payment_status == 'PARTIAL' %}bg-warning{% else %}bg-info{% endif %}">
+                                                {{ payment.get_payment_status_display }} {# C'est correct pour les choix de statut #}
+                                            </span>
+                                            <p class="mb-0 text-muted">{{ payment.payment_date|date:"d M Y" }}</p>
+                                        </div>
+                                    </div>
+                                    {% if payment.recorded_by %}
+                                        <small class="text-muted">Enregistré par : {{ payment.recorded_by.full_name|default:"Comptabilité" }}</small>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="alert alert-info text-center m-3" role="alert">
+                            <i class="fas fa-info-circle me-2"></i> Aucun paiement trouvé pour cet enfant.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

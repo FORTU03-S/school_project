@@ -1,0 +1,33 @@
+{# school_project/school/templates/school/course_confirm_delete.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">Confirmation de Suppression !</h4>
+        <p>Êtes-vous sûr de vouloir supprimer le cours "<strong>{{ course.name }}</strong>" (Classe : {{ course.classe.name }}, Période : {{ course.academic_period.name }}) ?</p>
+        <p>Cette action est *irréversible* et supprimera toutes les données liées à ce cours, y compris les inscriptions d'élèves à ce cours.</p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Confirmer la Suppression</button>
+        <a href="{% url 'course_detail' course.pk %}" class="btn btn-secondary">Annuler</a>
+        <a href="{% url 'course_list' %}" class="btn btn-info">Retour à la liste des cours</a>
+    </form>
+
+</div>
+{% endblock %}

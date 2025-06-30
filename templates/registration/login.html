@@ -1,0 +1,55 @@
+{% extends 'base.html' %} {# Assurez-vous que le chemin vers votre base.html est correct #}
+{% load static %} {# Si vous utilisez des fichiers statiques dans ce template #}
+
+{% block title %}Connexion{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white text-center">
+                    <h3 class="mb-0">Connexion</h3>
+                </div>
+                <div class="card-body p-4">
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger" role="alert">
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <div class="form-text text-muted">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        <div class="d-grid gap-2 mb-3">
+                            <button type="submit" class="btn btn-primary btn-lg">Se connecter</button>
+                        </div>
+                        <div class="text-center">
+                            {# Lien vers la réinitialisation du mot de passe #}
+                            <a href="{% url 'password_reset' %}" class="text-muted">Mot de passe oublié ?</a>
+                            <hr>
+                            {# Lien vers l'inscription si vous l'avez #}
+                            <p class="mb-0">Pas encore de compte ? <a href="{% url 'register_parent' %}" class="text-primary">Inscrivez-vous ici</a></p>
+                            {# Ou si vous avez une page de choix de rôle #}
+                            {# <p class="mb-0">Pas encore de compte ? <a href="{% url 'register_choice' %}" class="text-primary">Inscrivez-vous ici</a></p> #}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

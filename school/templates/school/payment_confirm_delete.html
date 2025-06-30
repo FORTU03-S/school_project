@@ -1,0 +1,33 @@
+{# school_project/school/templates/school/payment_confirm_delete.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">Confirmation de Suppression !</h4>
+        <p>Êtes-vous sûr de vouloir supprimer le paiement de <strong>{{ payment.amount|floatformat:2 }} $</strong> pour "<strong>{{ payment.student.get_full_name }}</strong>" le <strong>{{ payment.payment_date|date:"d M Y" }}</strong> ?</p>
+        <p>Cette action est *irréversible*.</p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Confirmer la Suppression</button>
+        <a href="{% url 'payment_detail' payment.pk %}" class="btn btn-secondary">Annuler</a>
+        <a href="{% url 'payment_list' %}" class="btn btn-info">Retour à la liste des paiements</a>
+    </form>
+
+</div>
+{% endblock %}

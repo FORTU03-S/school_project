@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    <h3>Élèves actuellement dans {{ classe.name }}</h3>
+    {% if students_in_class %}
+        <form method="post" action="{% url 'teacher_add_remove_students_to_class' classe.id %}">
+            {% csrf_token %}
+            <ul class="list-group mb-3">
+                {% for student in students_in_class %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ student.full_name }}
+                        <input type="checkbox" name="student_ids" value="{{ student.id }}">
+                    </li>
+                {% endfor %}
+            </ul>
+            <button type="submit" name="action" value="remove" class="btn btn-danger">Retirer les élèves sélectionnés</button>
+        </form>
+    {% else %}
+        <p class="alert alert-info">Aucun élève actuellement dans cette classe.</p>
+    {% endif %}
+
+    <h3 class="mt-4">Ajouter des élèves à {{ classe.name }}</h3>
+    {% if students_not_in_class %}
+        <form method="post" action="{% url 'teacher_add_remove_students_to_class' classe.id %}">
+            {% csrf_token %}
+            <ul class="list-group mb-3">
+                {% for student in students_not_in_class %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ student.full_name }}
+                        <input type="checkbox" name="student_ids" value="{{ student.id }}">
+                    </li>
+                {% endfor %}
+            </ul>
+            <button type="submit" name="action" value="add" class="btn btn-success">Ajouter les élèves sélectionnés</button>
+        </form>
+    {% else %}
+        <p class="alert alert-info">Tous les élèves sont déjà assignés à une classe ou il n'y a pas d'élèves non assignés.</p>
+    {% endif %}
+
+    <a href="{% url 'teacher_student_list' %}" class="btn btn-secondary mt-4">Retour à la liste des élèves</a>
+</div>
+{% endblock %}

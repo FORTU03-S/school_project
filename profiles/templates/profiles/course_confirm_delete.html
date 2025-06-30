@@ -1,0 +1,15 @@
+{# school_project/profiles/templates/profiles/course_confirm_delete.html #}
+
+{% extends "base.html" %}  {# Hérite de votre template de base #}
+
+{% block content %}
+  <h1>Confirmer la suppression du cours</h1>
+
+  <p>Êtes-vous sûr de vouloir supprimer le cours <strong>{{ course.name }}</strong> ?</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Oui, supprimer</button>
+    <a href="{% url 'profiles:course_list' %}" class="btn btn-secondary">Annuler</a>
+  </form>
+{% endblock %}

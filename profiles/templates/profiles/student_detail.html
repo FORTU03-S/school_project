@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% comment %} Informations de l'enfant {% endcomment %}
+    <div class="card mb-4">
+        <div class="card-header">
+            Informations Générales de l'Enfant
+        </div>
+        <div class="card-body">
+            <p><strong>Nom Complet :</strong> {{ child.full_name }}</p>
+            <p><strong>Date de Naissance :</strong> {{ child.date_of_birth|date:"d M Y" }}</p>
+            <p><strong>Classe Actuelle :</strong> 
+                {% if child.current_classe %}
+                    {{ child.current_classe.name }}
+                {% else %}
+                    Non assignée
+                {% endif %}
+            </p>
+            <p><strong>Code Élève :</strong> {{ child.student_id_code }}</p>
+            {# ... Autres informations de l'enfant ... #}
+        </div>
+    </div>
+
+    {% comment %} Section Évaluations et Notes (pour les parents) {% endcomment %}
+    <div class="card mb-4">
+        <div class="card-header">
+            Évaluations et Notes
+        </div>
+        <div class="card-body">
+            <form method="GET" class="form-inline mb-3" action="{% url 'parent_child_detail' child.id %}">
+                <label for="evaluation_date_filter" class="mr-2">Filtrer par date :</label>
+                <input type="date" name="evaluation_date_filter" id="evaluation_date_filter" class="form-control mr-2" value="{{ selected_date_str|default_if_none:'' }}">
+                <button type="submit" class="btn btn-primary">Appliquer</button>
+                {% if selected_date_str %}
+                    <a href="{% url 'parent_child_detail' child.id %}" class="btn btn-outline-secondary ml-2">Réinitialiser</a>
+                {% endif %}
+            </form>
+
+            {% if grades_data %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Cours</th>
+                                <th>Nom Évaluation</th>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Point Max</th>
+                                <th>Point Obtenu</th>
+                                <th>Notation</th>
+                                <th>Remarques</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for data in grades_data %}
+                                <tr>
+                                    <td>{{ data.evaluation.course.name }}</td>
+                                    <td>{{ data.evaluation.name }}</td>
+                                    <td>{{ data.evaluation.date|date:"d M Y" }}</td>
+                                    <td>{{ data.evaluation.get_evaluation_type_display }}</td>
+                                    <td>{{ data.evaluation.max_score }}</td>
+                                    <td>
+                                        {% if data.score is not None %}
+                                            {{ data.score }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ data.notation }}</td>
+                                    <td>{{ data.remarks|default:"-" }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="alert alert-info">Aucune évaluation trouvée pour cet enfant (selon les filtres).</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <a href="{% url 'parent_dashboard' %}" class="btn btn-secondary mt-3">Retour au Tableau de Bord</a>
+</div>
+{% endblock %}

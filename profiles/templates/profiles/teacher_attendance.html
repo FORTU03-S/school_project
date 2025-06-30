@@ -1,0 +1,123 @@
+{# school_project/profiles/templates/profiles/teacher_attendance_view.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <h2 class="mb-4 text-center">{{ title }}</h2>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <a href="{% url 'profiles:teacher_dashboard' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i> Retour au Tableau de Bord
+                </a>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {# Sélection du Cours et de la Date #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i> Filtrer par Cours et Date</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="{% url 'profiles:teacher_attendance_view' %}" id="filter-form">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-6">
+                                <label for="course_select" class="form-label">Sélectionner un cours :</label>
+                                <select class="form-select" id="course_select" name="course_id" onchange="this.form.submit()">
+                                    <option value="">-- Choisir un cours --</option>
+                                    {% for course in teacher_courses %}
+                                        <option value="{{ course.id }}" {% if course.id == selected_course_id %}selected{% endif %}>
+                                            {{ course.name }} ({{ course.classe.name|default:"Sans classe" }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="attendance_date" class="form-label">Date :</label>
+                                <input type="date" class="form-control" id="attendance_date" name="attendance_date" value="{{ selected_date_str }}" onchange="this.form.submit()">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary w-100">Filtrer</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {# Liste des Élèves et Registre #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i> Registre d'Appel pour {{ course_name }} - {{ selected_date_str|date:"d M Y" }}</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if students_in_course %}
+                        <ul class="list-group list-group-flush">
+                            {% for student_info in students_in_course %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">{{ student_info.student.full_name }}</h6>
+                                        <small class="text-muted">ID : {{ student_info.student.student_id_code }}</small>
+                                        {% if student_info.is_present_today == False %} {# Absent #}
+                                            <span class="badge bg-danger ms-2">Absent</span>
+                                            {% if student_info.reason_for_absence %}
+                                                <small class="text-muted ms-2">Raison : {{ student_info.reason_for_absence }}</small>
+                                            {% endif %}
+                                        {% elif student_info.is_present_today == True %} {# Présent #}
+                                            <span class="badge bg-success ms-2">Présent</span>
+                                        {% else %} {# Non marqué #}
+                                            <span class="badge bg-secondary ms-2">Non marqué</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        {# Formulaire pour marquer l'absence/présence #}
+                                        <form method="POST" action="{% url 'profiles:teacher_attendance_view' %}" class="d-inline-flex me-2">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="enrollment_id" value="{{ student_info.enrollment_id }}">
+                                            <input type="hidden" name="attendance_date" value="{{ selected_date_str }}">
+                                            <input type="hidden" name="action" value="present">
+                                            <button type="submit" class="btn btn-sm btn-outline-success {% if student_info.is_present_today == True %}disabled{% endif %}" {% if student_info.is_present_today == True %}disabled{% endif %}>
+                                                <i class="fas fa-check"></i> Présent
+                                            </button>
+                                        </form>
+
+                                        <form method="POST" action="{% url 'profiles:teacher_attendance_view' %}" class="d-inline-flex">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="enrollment_id" value="{{ student_info.enrollment_id }}">
+                                            <input type="hidden" name="attendance_date" value="{{ selected_date_str }}">
+                                            <input type="hidden" name="action" value="absent">
+                                            <input type="text" name="reason_for_absence" class="form-control form-control-sm me-2" placeholder="Raison de l'absence" {% if student_info.is_present_today != False %}disabled{% endif %} value="{{ student_info.reason_for_absence|default_if_none:'' }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger {% if student_info.is_present_today == False %}disabled{% endif %}" {% if student_info.is_present_today == False %}disabled{% endif %}>
+                                                <i class="fas fa-times"></i> Absent
+                                            </button>
+                                        </form>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="alert alert-info text-center m-3" role="alert">
+                            {% if selected_course_id %}
+                                <i class="fas fa-info-circle me-2"></i> Aucun élève inscrit à ce cours pour la période actuelle.
+                            {% else %}
+                                <i class="fas fa-info-circle me-2"></i> Veuillez sélectionner un cours ci-dessus pour gérer les présences.
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

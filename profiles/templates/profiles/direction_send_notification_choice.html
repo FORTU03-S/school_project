@@ -1,0 +1,47 @@
+{# school_project/profiles/templates/profiles/direction_send_notification_choice.html #}
+
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">Envoyer une Notification</h1>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Message à un parent spécifique</h5>
+                    <p class="card-text">Permet d'envoyer un message à un seul parent via l'élève.</p>
+                    <a href="{% url 'profiles:list_students' %}" class="btn btn-primary">Sélectionner un élève</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Message à tous les parents</h5>
+                    <p class="card-text">Envoyer un message à l'ensemble des parents inscrits dans le système.</p>
+                    <a href="{% url 'profiles:direction_send_message_to_all_parents' %}" class="btn btn-warning">Envoyer à tous les parents</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Message aux parents d'une classe spécifique</h5>
+                    <p class="card-text">Choisir une classe pour envoyer un message à tous les parents de ses élèves.</p>
+                    <form action="#" method="get"> {# Ou un formulaire avec POST si vous préférez #}
+                        <div class="mb-3">
+                            <label for="class_select" class="form-label">Sélectionner une classe :</label>
+                            <select class="form-select" id="class_select" onchange="if(this.value) window.location.href = '{% url 'profiles:direction_send_message_to_class_parents' 0 %}'.replace('0', this.value);">
+                                <option value="">-- Choisir une classe --</option>
+                                {% for classe in classes %}
+                                    <option value="{{ classe.pk }}">{{ classe.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

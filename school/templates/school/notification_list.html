@@ -1,0 +1,88 @@
+{# school_project/school/templates/school/notification_list.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }} 
+        {% if request.user.user_type != 'DIRECTION' %}
+            {% if unread_notifications_count > 0 %}
+                <span class="badge bg-warning text-dark">{{ unread_notifications_count }} Non Lus</span>
+            {% else %}
+                <span class="badge bg-secondary">0 Non Lu</span>
+            {% endif %}
+        {% endif %}
+    </h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if request.user.user_type == 'DIRECTION' or request.user.user_type == 'TEACHER' or request.user.user_type == 'ACCOUNTING' %}
+    <a href="{% url 'notification_create' %}" class="btn btn-primary mb-3">Envoyer une Nouvelle Notification</a>
+    {% endif %}
+
+    {% if notifications %}
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Sujet</th>
+                    <th>Expéditeur</th>
+                    <th>Destinataire</th>
+                    <th>Date d'Envoi</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for notification in notifications %}
+                <tr {% if not notification.is_read and notification.recipient == request.user %}class="table-info"{% endif %}>
+                    <td><a href="{% url 'notification_detail' notification.id %}">{{ notification.subject }}</a></td>
+                    <td>{{ notification.sender.get_full_name }} ({{ notification.sender.get_user_type_display }})</td>
+                    <td>{{ notification.recipient.get_full_name }} ({{ notification.recipient.get_user_type_display }})</td>
+                    <td>{{ notification.date_sent|date:"d M Y H:i" }}</td>
+                    <td>
+                        {% if notification.is_read %}
+                            <span class="badge bg-secondary">Lue</span>
+                        {% else %}
+                            {% if notification.recipient == request.user %}
+                                <span class="badge bg-warning text-dark">Non Lue</span>
+                            {% else %}
+                                <span class="badge bg-info">Envoyée (non lue par dest.)</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'notification_detail' notification.id %}" class="btn btn-sm btn-info">Voir</a>
+                        {% if request.user.user_type == 'DIRECTION' or notification.sender == request.user %}
+                            {% if not notification.is_read %}
+                                {# Si la notification n'est pas lue et que l'utilisateur est le destinataire, offrir l'option "marquer lu" #}
+                                {% if notification.recipient == request.user %}
+                                    <a href="{% url 'notification_mark_read' notification.id %}" class="btn btn-sm btn-success">Marquer Lu</a>
+                                {% endif %}
+                                {# Sinon, pas d'option de modification pour l'expéditeur si déjà envoyée #}
+                            {% endif %}
+                        {% endif %}
+                        {% if request.user.user_type == 'DIRECTION' %} {# Seule la direction peut supprimer ou modifier une notification existante #}
+                            <a href="{% url 'notification_update' notification.id %}" class="btn btn-sm btn-warning">Modifier</a>
+                            <a href="{% url 'notification_delete' notification.id %}" class="btn btn-sm btn-danger">Supprimer</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <p>Aucune notification n'a été trouvée pour vous ou votre école.</p>
+    {% endif %}
+
+</div>
+{% endblock %}

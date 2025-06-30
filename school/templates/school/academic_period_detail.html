@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            Détails de la Période
+        </div>
+        <div class="card-body">
+            <p><strong>Nom :</strong> {{ academic_period.name }}</p>
+            <p><strong>Date de début :</strong> {{ academic_period.start_date|date:"d M Y" }}</p>
+            <p><strong>Date de fin :</strong> {{ academic_period.end_date|date:"d M Y" }}</p>
+            <p><strong>Actuelle :</strong>
+                {% if academic_period.is_current %}
+                    <span class="badge bg-success">Oui</span>
+                {% else %}
+                    <span class="badge bg-secondary">Non</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+            <a href="{% url 'academic_period_list' %}" class="btn btn-secondary">Retour à la liste</a>
+            <a href="{% url 'academic_period_edit' academic_period.id %}" class="btn btn-warning">Modifier</a>
+            {# Le lien de suppression sera géré séparément avec une confirmation #}
+            <a href="{% url 'academic_period_delete' academic_period.id %}" class="btn btn-danger">Supprimer</a>
+        </div>
+    </div>
+
+    {# Vous pouvez ajouter ici d'autres sections liées à cette période académique,
+       par exemple, les classes actives pendant cette période, etc. #}
+
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{# school_project/school/templates/school/payment_detail.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            Informations sur le Paiement
+        </div>
+        <div class="card-body">
+            <p><strong>Élève :</strong> 
+                {% if payment.student %}
+                    <a href="{% url 'student_detail' payment.student.id %}">{{ payment.student.get_full_name }}</a>
+                {% else %}
+                    N/A
+                {% endif %}
+            </p>
+            <p><strong>Période Académique :</strong> {{ payment.academic_period.name }}</p>
+            <p><strong>Montant Payé :</strong> {{ payment.amount|floatformat:2 }} $</p>
+            <p><strong>Date de Paiement :</strong> {{ payment.payment_date|date:"d M Y" }}</p>
+            <p><strong>Reçu par :</strong> {{ payment.received_by.get_full_name }}</p>
+            <p><strong>Description :</strong> {{ payment.description|default:"Aucune" }}</p>
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+            <a href="{% url 'payment_list' %}" class="btn btn-secondary">Retour à la liste</a>
+            {% if request.user.user_type == 'DIRECTION' or (request.user.user_type == 'ACCOUNTING' and payment.received_by == request.user) %}
+                <a href="{% url 'payment_update' payment.id %}" class="btn btn-warning">Modifier</a>
+            {% endif %}
+            {% if request.user.user_type == 'DIRECTION' %}
+                <a href="{% url 'payment_delete' payment.id %}" class="btn btn-danger">Supprimer</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
