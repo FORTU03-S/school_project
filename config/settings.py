@@ -14,9 +14,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-votresecretkeyici!genereznouvelle' # REMPLACEZ CECI PAR UNE VRAIE CLÉ EN PROD !
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True # Mettez à False en production
+DEBUG = False # Mettez à False en production
 
-ALLOWED_HOSTS = [] # Laissez vide pour le développement, ajoutez les noms de domaine en production (ex: ['mon-site.com', 'www.mon-site.com'])
+ALLOWED_HOSTS = ['http://fortumanagement.onrender.com'] # Laissez vide pour le développement, ajoutez les noms de domaine en production (ex: ['mon-site.com', 'www.mon-site.com'])
 
 
 # Application definition
