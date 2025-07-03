@@ -1,128 +1,193 @@
 {# C:\Users\user\school_project\profiles\templates\profiles\direction_dashboard.html #}
 
-{% extends 'base.html' %} {# <--- Cette ligne est CRUCIALE ! #}
+{% extends 'base.html' %} 
 
-{% load static %} {# Si besoin #}
+{% load static %} {# S'assurer que 'static' est chargé pour les assets statiques #}
 
-{% block title %}Tableau de Bord Direction{% endblock %}
+{% block title %}Tableau de Bord Direction - {{ user.school.name|default:"Votre École" }}{% endblock %}
 
 {% block content %}
 
-    <h1 class="mb-4">Tableau de Bord de la Direction</h1>
-    <p class="lead">Bienvenue *{{ user.first_name }}* ! Gérez votre établissement ici.</p>
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="display-4 fw-bold text-primary">Tableau de Bord de la Direction</h1>
+        <a href="{% url 'profiles:dashboard_charts' %}" class="btn btn-outline-primary btn-lg d-flex align-items-center">
+            <i class="fas fa-chart-bar me-2"></i> Voir les Statistiques & Graphiques
+        </a>
+    </div>
+    <p class="lead text-muted mb-5">Bienvenue <span class="fw-bold text-dark">{{ user.first_name }}</span> ! Gérez les opérations clés de votre établissement ici.</p>
 
-    <div class="row">
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4"> {# Responsive grid with gutters #}
 
-        {# Section Gestion des Utilisateurs et Roles #}
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Gestion des Utilisateurs & Rôles</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Gérez les comptes d'utilisateurs, leurs rôles (élèves, enseignants, parents, direction) et leurs accès.</p>
-                    <a href="{% url 'profiles:direction_manage_users' %}" class="btn btn-primary mt-2">Gérer les Utilisateurs</a>
+        {# Section Gestion des Utilisateurs et Rôles #}
+        <div class="col">
+            <div class="card h-100 shadow-lg border-primary">
+                <div class="card-body d-flex flex-column">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-users-cog fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title fw-bold text-primary mb-3">Gestion des Utilisateurs & Rôles</h5>
+                    <p class="card-text text-muted mb-4 flex-grow-1">Gérez les comptes d'utilisateurs, leurs rôles (élèves, enseignants, parents, direction) et leurs accès.</p>
+                    <div class="mt-auto"> {# Utilisez mt-auto et d-flex/gap pour aligner les boutons #}
+                        <a href="{% url 'profiles:direction_manage_users' %}" class="btn btn-primary btn-sm me-2">
+                            <i class="fas fa-arrow-right me-1"></i> Gérer les Utilisateurs
+                        </a>
+                        <a href="{% url 'profiles:direction_create_teacher' %}" class="btn btn-outline-primary btn-sm"> {# NOUVEAU LIEN #}
+                            <i class="fas fa-user-plus me-1"></i> Enregistrer Enseignant
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
 
         {# Section Gestion des Attributions de Classes #}
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">Gestion des Attributions de Classes</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Attribuez les enseignants aux classes et gérez leurs responsabilités d'enseignement.</p>
-                    <a href="{% url 'profiles:direction_manage_class_assignments' %}" class="btn btn-success mt-2">Gérer les Attributions</a>
+        <div class="col">
+            <div class="card h-100 shadow-lg border-success">
+                <div class="card-body d-flex flex-column">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-chalkboard-teacher fa-3x text-success"></i>
+                    </div>
+                    <h5 class="card-title fw-bold text-success mb-3">Gestion des Attributions de Classes</h5>
+                    <p class="card-text text-muted mb-4 flex-grow-1">Attribuez les enseignants aux classes et gérez leurs responsabilités d'enseignement.</p>
+                    <a href="{% url 'profiles:direction_manage_class_assignments' %}" class="btn btn-success btn-sm mt-auto">
+                        <i class="fas fa-arrow-right me-1"></i> Gérer les Attributions
+                    </a>
                 </div>
             </div>
         </div>
 
         {# Section Gestion des Élèves #}
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Gestion des Élèves</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Ajoutez de nouveaux élèves et visualisez la liste complète des élèves de l'établissement.</p>
-                    <a href="{% url 'profiles:add_student' %}" class="btn btn-info mt-2 me-2">Ajouter un Élève</a>
-                    <a href="{% url 'profiles:list_students' %}" class="btn btn-outline-info mt-2">Liste des Élèves</a>
+        <div class="col">
+            <div class="card h-100 shadow-lg border-info">
+                <div class="card-body d-flex flex-column">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-user-graduate fa-3x text-info"></i>
+                    </div>
+                    <h5 class="card-title fw-bold text-info mb-3">Gestion des Élèves</h5>
+                    <p class="card-text text-muted mb-4 flex-grow-1">Ajoutez de nouveaux élèves et visualisez la liste complète des élèves de l'établissement.</p>
+                    <div class="mt-auto">
+                        <a href="{% url 'profiles:add_student' %}" class="btn btn-info btn-sm me-2">
+                            <i class="fas fa-plus me-1"></i> Ajouter un Élève
+                        </a>
+                        <a href="{% url 'profiles:list_students' %}" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-list me-1"></i> Liste des Élèves
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
 
         {# Section Gestion des Classes #}
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0">Gestion des Classes</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Créez de nouvelles classes et consultez la liste de toutes les classes disponibles.</p>
-                    <a href="{% url 'profiles:classe_create' %}" class="btn btn-warning mt-2 me-2">Ajouter une Classe</a>
-                    <a href="{% url 'profiles:class_list' %}" class="btn btn-outline-warning mt-2">Liste des Classes</a>
+        <div class="col">
+            <div class="card h-100 shadow-lg border-warning">
+                <div class="card-body d-flex flex-column">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-school fa-3x text-warning"></i>
+                    </div>
+                    <h5 class="card-title fw-bold text-warning mb-3">Gestion des Classes</h5>
+                    <p class="card-text text-muted mb-4 flex-grow-1">Créez de nouvelles classes et consultez la liste de toutes les classes disponibles.</p>
+                    <div class="mt-auto">
+                         <a href="{% url 'profiles:classe_create' %}" class="btn btn-warning btn-sm me-2">
+                            <i class="fas fa-plus me-1"></i> Ajouter une Classe
+                         </a>
+                         <a href="{% url 'profiles:class_list' %}" class="btn btn-outline-warning btn-sm">
+                            <i class="fas fa-list me-1"></i> Liste des Classes
+                         </a>
+                    </div>
                 </div>
             </div>
         </div>
 
         {# Section Gestion des Cours #}
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0">Gestion des Cours</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Créez de nouveaux cours et gérez l'offre pédagogique de l'établissement.</p>
-                    <a href="{% url 'profiles:course_create' %}" class="btn btn-danger mt-2 me-2">Créer un Cours</a>
-                    <a href="{% url 'profiles:course_list' %}" class="btn btn-outline-danger mt-2">Liste des Cours</a>
+        <div class="col">
+            <div class="card h-100 shadow-lg border-danger">
+                <div class="card-body d-flex flex-column">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-book-open fa-3x text-danger"></i>
+                    </div>
+                    <h5 class="card-title fw-bold text-danger mb-3">Gestion des Cours</h5>
+                    <p class="card-text text-muted mb-4 flex-grow-1">Créez de nouveaux cours et gérez l'offre pédagogique de l'établissement.</p>
+                    <div class="mt-auto">
+                        <a href="{% url 'profiles:course_create' %}" class="btn btn-danger btn-sm me-2">
+                            <i class="fas fa-plus me-1"></i> Créer un Cours
+                        </a>
+                        <a href="{% url 'profiles:course_list' %}" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-list me-1"></i> Liste des Cours
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
         
         {# NOUVELLE SECTION : Notifications et Communication #}
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0">Notifications & Communication</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Envoyez des messages et des annonces importantes aux parents, élèves et/ou enseignants.</p>
-                    <a href="{% url 'profiles:direction_send_notification' %}" class="btn btn-secondary mt-2">Envoyer une Notification</a>
-                   {# <a href="{% url 'profiles:direction_notification_history' %}" class="btn btn-outline-secondary mt-2">Historique des Notifications</a>#}
+        <div class="col">
+            <div class="card h-100 shadow-lg border-secondary">
+                <div class="card-body d-flex flex-column">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-bell fa-3x text-secondary"></i>
+                    </div>
+                    <h5 class="card-title fw-bold text-secondary mb-3">Notifications & Communication</h5>
+                    <p class="card-text text-muted mb-4 flex-grow-1">Envoyez des messages et des annonces importantes aux parents, élèves et/ou enseignants.</p>
+                    <div class="mt-auto">
+                        <a href="{% url 'profiles:direction_send_notification' %}" class="btn btn-secondary btn-sm me-2">
+                            <i class="fas fa-paper-plane me-1"></i> Envoyer une Notification
+                        </a>
+                        {# <a href="{% url 'profiles:direction_notification_history' %}" class="btn btn-outline-secondary btn-sm"> #}
+                        {# Il manque une balise <a> fermante ici, je la corrige #}
+                        <a href="#" class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true"> 
+                            <i class="fas fa-history me-1"></i> Historique
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
 
         {# NOUVELLE SECTION : Années Académiques et Calendrier #}
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">Années Académiques & Calendrier</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Gérez les périodes académiques, les jours fériés et les événements importants de l'année.</p>
-                    <a href="{% url 'profiles:academic_period_create' %}" class="btn btn-dark mt-2 me-2">Créer une Année Académique</a>
-                   {# <a href="{% url 'profiles:direction_calendar_management' %}" class="btn btn-outline-dark mt-2">Gérer le Calendrier</a>#}
+        <div class="col">
+            <div class="card h-100 shadow-lg border-dark">
+                <div class="card-body d-flex flex-column">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-calendar-alt fa-3x text-dark"></i>
+                    </div>
+                    <h5 class="card-title fw-bold text-dark mb-3">Années Académiques & Calendrier</h5>
+                    <p class="card-text text-muted mb-4 flex-grow-1">Gérez les périodes académiques, les jours fériés et les événements importants de l'année.</p>
+                    <div class="mt-auto">
+                        <a href="{% url 'profiles:academic_period_create' %}" class="btn btn-dark btn-sm me-2">
+                            <i class="fas fa-plus me-1"></i> Créer Année Académique
+                        </a>
+                        <a href="{% url 'profiles:academic_period_list' %}" class="btn btn-outline-dark btn-sm">
+                             <i class="fas fa-list me-1"></i> Gérer les Périodes
+                        </a>
+                        {# Vous pourriez ajouter ici un lien pour 'direction_calendar_management' si vous le créez plus tard #}
+                    </div>
                 </div>
             </div>
         </div>
 
         {# NOUVELLE SECTION : Archives et Historique #}
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-info text-white"> {# Utilisation de bg-info pour varier, ou bg-light si plus discret #}
-                    <h5 class="mb-0">Archives & Rapports Historiques</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Accédez aux données et aux rapports des années académiques précédentes pour consultation.</p>
-                    {#<a href="{% url 'profiles:direction_archive_list' %}" class="btn btn-info mt-2">Consulter les Archives</a>#}
-                    {#<a href="{% url 'profiles:direction_reports' %}" class="btn btn-outline-info mt-2">Rapports Généraux</a>#}
+        <div class="col">
+            <div class="card h-100 shadow-lg border-secondary"> {# Utilisez une couleur de bordure qui s'intègre bien #}
+                <div class="card-body d-flex flex-column">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-archive fa-3x text-secondary"></i>
+                    </div>
+                    <h5 class="card-title fw-bold text-secondary mb-3">Archives & Rapports Historiques</h5>
+                    <p class="card-text text-muted mb-4 flex-grow-1">Accédez aux données et aux rapports des années académiques précédentes pour consultation.</p>
+                    <div class="mt-auto">
+                        {# Remplacer par des URLs réelles quand elles existeront #}
+                        <a href="#" class="btn btn-secondary btn-sm me-2 disabled" aria-disabled="true">
+                            <i class="fas fa-file-alt me-1"></i> Consulter les Archives
+                        </a>
+                        <a href="#" class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">
+                            <i class="fas fa-chart-line me-1"></i> Rapports Généraux
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
         
-    </div>
+    </div> {# End row #}
+
+</div> {# End container #}
 
 {% endblock content %}

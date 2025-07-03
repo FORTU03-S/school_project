@@ -1,5 +1,8 @@
 # profiles/views.py
 from django.db import models, IntegrityError
+from .chart_generator import ChartGenerator
+from datetime import datetime
+from profiles.chart_generator import ChartGenerator
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout, authenticate, get_user_model
@@ -28,7 +31,8 @@ from .forms import (
     StudentForm,
     DisciplinaryRecordForm,# Ajouté pour la vue teacher_student_detail_view si besoin 
     CourseForm,
-    AcademicPeriodForm  
+    AcademicPeriodForm,
+    TeacherCreationForm 
 )
 from profiles.forms import ClasseForm
 from .models import UserRole, Notification
@@ -562,21 +566,17 @@ def is_direction(user):
 
 CustomUser = get_user_model()
 
+def is_direction(user):
+    return user.is_authenticated and user.user_type == 'DIRECTION'
+
 @login_required
 @user_passes_test(is_direction, login_url='/login/')
 def direction_manage_class_assignments(request):
-    user_school = request.user.school # L'école de la direction connectée
+    user_school = request.user.school
 
     if not user_school:
         messages.error(request, "Votre compte n'est pas lié à une école. Impossible de gérer les assignations.")
-        return redirect('profiles:direction_dashboard') # OK, gère ce cas.
-
-    # --- Préparation des données pour l'affichage (s'exécute pour GET et POST) ---
-    # Ces lignes récupèrent les données nécessaires à la page.
-    classes = Classe.objects.filter(school=user_school).order_by('name')
-    students = Student.objects.filter(school=user_school, is_active=True).order_by('first_name', 'last_name')
-    teachers = CustomUser.objects.filter(school=user_school, user_type='TEACHER', is_active=True).order_by('first_name', 'last_name')
-    courses = Course.objects.filter(school=user_school).order_by('name')
+        return redirect('profiles:direction_dashboard')
 
     active_academic_period = AcademicPeriod.objects.filter(
         school=user_school,
@@ -586,86 +586,64 @@ def direction_manage_class_assignments(request):
     if not active_academic_period:
         messages.warning(request, "Aucune période académique active n'est définie pour votre école. Certaines opérations d'assignation pourraient être limitées.")
 
-
-    # --- Traitement des requêtes POST (si un formulaire est soumis) ---
     if request.method == 'POST':
-        action_type = request.POST.get('action_type')
+        # Instanciez le formulaire avec les données POST et le contexte user_school
+        form = ClassAssignmentForm(request.POST, user_school=user_school)
 
-        if action_type == 'assign_student_to_class':
-            # Logic to assign student to class
-            student_id = request.POST.get('student')
-            classe_id = request.POST.get('classe')
-            if student_id and classe_id:
-                student = get_object_or_404(Student, id=student_id, school=user_school)
-                classe = get_object_or_404(Classe, id=classe_id, school=user_school)
-                
-                # Logic to handle student's class change and automatic course enrollment
-                old_classe = student.current_classe
-                student.current_classe = classe
-                student.save()
+        if form.is_valid():
+            # Vérifiez l'assignation unique avant de sauvegarder
+            teacher_instance = form.cleaned_data['teacher']
+            classe_instance = form.cleaned_data['classe']
+            academic_period_instance = form.cleaned_data['academic_period']
 
-                if active_academic_period:
-                    # Remove old enrollments if class changed
-                    if old_classe and old_classe != classe:
-                        Enrollment.objects.filter(
-                            student=student,
-                            academic_period=active_academic_period,
-                            school=user_school,
-                            course__in=old_classe.courses.filter(academic_period=active_academic_period)
-                        ).delete()
-                        messages.info(request, f"Anciennes inscriptions pour {student.full_name} supprimées.")
-
-                    # Enroll in new courses
-                    courses_in_new_classe = classe.courses.filter(academic_period=active_academic_period)
-                    for course in courses_in_new_classe:
-                        Enrollment.objects.get_or_create(
-                            student=student,
-                            course=course,
-                            academic_period=active_academic_period,
-                            school=user_school
-                        )
-                    messages.success(request, f"L'élève {student.full_name} a été assigné à la classe '{classe.name}' et inscrit aux cours.")
-                else:
-                    messages.warning(request, "L'élève a été assigné à la classe, mais l'inscription aux cours a échoué (pas de période académique active).")
+            # Utilisez get_or_create pour éviter les doublons et simplifier la logique
+            assignment, created = ClassAssignment.objects.get_or_create(
+                school=user_school,
+                teacher=teacher_instance,
+                classe=classe_instance,
+                academic_period=academic_period_instance
+            )
+            if created:
+                messages.success(request, f"L'enseignant {teacher_instance.get_full_name()} a été assigné à la classe '{classe_instance.name}' pour la période '{academic_period_instance.name}'.")
             else:
-                messages.error(request, "Veuillez sélectionner un élève et une classe.")
+                messages.info(request, f"L'assignation de {teacher_instance.get_full_name()} à la classe '{classe_instance.name}' pour cette période existe déjà.")
 
-        elif action_type == 'assign_teacher_to_course':
-            # Logic to assign teacher to course
-            teacher_id = request.POST.get('teacher')
-            course_id = request.POST.get('course')
-            if teacher_id and course_id:
-                teacher = get_object_or_404(CustomUser, id=teacher_id, user_type='TEACHER', school=user_school)
-                course = get_object_or_404(Course, id=course_id, school=user_school)
-                
-                # Add teacher to course (assuming Course has a many-to-many field with teachers)
-                # For example: course.teachers.add(teacher) if Course has a 'teachers' M2M
-                # Or if the Course model has a 'teacher' ForeignKey, you'd update that:
-                # course.teacher = teacher
-                # course.save()
+            # IMPORTANT : Après une soumission de formulaire réussie, redirigez
+            return redirect('profiles:direction_manage_class_assignments')
+        else:
+            # Le formulaire n'est pas valide, les messages d'erreur doivent être gérés par le template
+            messages.error(request, "Veuillez corriger les erreurs dans le formulaire d'assignation.")
+            # Pour le débogage, vous pouvez imprimer form.errors ici :
+            # print(form.errors)
 
-                # If a Course can have multiple teachers (M2M):
-                course.teachers.add(teacher) # Assuming your Course model has a M2M to teachers
+        # Gérer les autres actions POST si elles sont séparées du ClassAssignmentForm
+        # Exemple : si vous avez toujours la partie d'assignation des élèves
+        # if request.POST.get('action_type') == 'assign_student_to_class':
+        #     # ... votre logique d'assignation d'élève existante ...
+        #     pass
 
-                messages.success(request, f"L'enseignant {teacher.full_name} a été assigné au cours '{course.name}'.")
-            else:
-                messages.error(request, "Veuillez sélectionner un enseignant et un cours.")
-        
-        # --- Toujours rediriger après un POST réussi ou échoué pour éviter les renvois multiples ---
-        return redirect('profiles:direction_manage_class_assignments') # Redirige vers la même page après l'action
 
-    # --- Rendu de la page pour les requêtes GET (ou si le POST n'a pas redirigé) ---
-    # C'est la partie CRUCIALE pour les requêtes GET.
+    else: # Requête GET
+        # Instanciez un formulaire vide pour l'affichage initial
+        form = ClassAssignmentForm(user_school=user_school)
+
+    # Récupérer les assignations de classe existantes pour le tableau
+    assignments = ClassAssignment.objects.filter(
+        school=user_school,
+        academic_period=active_academic_period # Filtrer par la période académique active
+    ).order_by('teacher__last_name', 'teacher__first_name')
+
+
     context = {
         'title': "Gérer les Assignations de Classe",
-        'classes': classes,
-        'students': students,
-        'teachers': teachers,
-        'courses': courses,
+        'form': form, # Passer l'instance du formulaire au template
+        'assignments': assignments, # Passer les assignations existantes au template
         'active_academic_period': active_academic_period,
+        # Vous n'avez plus besoin de 'classes', 'students', 'teachers', 'courses' directement
+        # dans le contexte pour les listes déroulantes du formulaire, car le formulaire les gère.
+        # Gardez-les si d'autres parties de votre template les utilisent à des fins différentes.
     }
-    return render(request, 'profiles/direction_manage_class_assignments.html', context) # Assurez-vous que ce template existe !
-   
+    return render(request, 'profiles/direction_manage_class_assignments.html', context)   
 
 
 @login_required
@@ -1624,7 +1602,7 @@ def classe_create(request):
             classe.school = user.school # Associez la classe à l'école de l'utilisateur
             classe.save()
             messages.success(request, f"La classe '{classe.name}' a été créée avec succès.")
-            return redirect('profiles:classe_list') # Redirigez vers la liste des classes
+            return redirect('profiles:class_list') # Redirigez vers la liste des classes
         else:
             messages.error(request, "Erreur lors de la création de la classe. Veuillez vérifier les informations.")
     else:
@@ -1679,33 +1657,38 @@ def course_list(request, class_id=None):
 # ... (vos autres vues) ..
 
 @login_required
-@user_passes_test(lambda u: u.user_type == UserRole.DIRECTION, login_url='/login/')
-def course_create(request):
-    user_school = request.user.school
-
-    if not user_school:
-        messages.error(request, "Votre compte n'est pas associé à une école. Impossible d'ajouter un cours sans école.") # <--- Changez le message
-        return redirect('profiles:direction_dashboard')
+@user_passes_test(is_direction, login_url='/login/')
+def classe_create(request):
+    user = request.user # L'utilisateur connecté
+    
+    # Assurez-vous que l'utilisateur est lié à une école
+    if not user.school:
+        messages.error(request, "Votre compte n'est pas lié à une école. Impossible d'ajouter une classe.")
+        return redirect('profiles:direction_dashboard') # Redirige vers un tableau de bord
 
     if request.method == 'POST':
-        form = CourseForm(request.POST) # <--- Utilisez CourseForm ici !
+        # Passez request.POST ET request=request (et school=user.school si nécessaire)
+        form = ClasseForm(request.POST, request=request, school=user.school) # <-- CORRECTION ICI
         if form.is_valid():
-            new_course = form.save(commit=False) # <--- Ceci sauvegarde un COURS
-            # Si votre modèle Course a un champ 'school', associez-le ici
-            # Exemple : new_course.school = user_school 
-            new_course.save()
-            messages.success(request, f"Le cours '{new_course.name}' a été ajouté avec succès !") # <--- Message pour un cours
-            return redirect('profiles:course_list') # <--- Redirection vers la liste des COURS (vérifiez le nom de l'URL)
+            classe = form.save(commit=False) # Sauvegarde l'instance mais ne la commit pas encore
+            classe.school = user.school # Assigne l'école de l'utilisateur à la classe
+            classe.save() # Sauvegarde la classe dans la base de données
+            messages.success(request, "La classe a été ajoutée avec succès.")
+            return redirect('profiles:classe_list') # Redirigez vers la liste des classes
         else:
-            messages.error(request, "Erreur lors de l'ajout du cours. Veuillez vérifier les informations.") # <--- Message pour un cours
+            messages.error(request, "Erreur lors de l'ajout de la classe. Veuillez vérifier les informations.")
     else:
-        form = CourseForm() # <--- Utilisez CourseForm ici !
+        # Pour les requêtes GET, instanciez un formulaire vide.
+        # Passez request=request (et school=user.school si nécessaire)
+        # Note: 'initial' est pour pré-remplir les champs du formulaire, pas pour les kwargs personnalisés.
+        # Vous avez utilisé 'shool' au lieu de 'school' dans 'initial', corrigez aussi cela si vous le gardez.
+        form = ClasseForm(request=request, school=user.school) # <-- CORRECTION ICI
 
     context = {
-        'title': 'Ajouter un Nouveau Cours', # <--- Changez le titre
         'form': form,
+        'title': "Ajouter une nouvelle Classe"
     }
-    return render(request, 'profiles/course_form.html', context) # Le template est déjà bon
+    return render(request, 'profiles/classe_form.html', context) # Assurez-vous que le template est correct
 
 @login_required
 # Vous pouvez ajouter @permission_required si seulement certains rôles peuvent voir les classes
@@ -2213,3 +2196,117 @@ def create_or_update_student(request, student_id=None):
         'active_academic_period': active_academic_period,
     }
     return render(request, 'profiles/create_or_update_student.html', context) # Assurez-vous d'avoir ce template
+
+# Fonction pour vérifier si l'utilisateur est un administrateur d'école ou un directeur
+#def is_school_admin_or_director(user):
+ #   return user.is_authenticated and (user.user_type == 'SCHOOL_ADMIN' or user.user_type == 'DIRECTOR')
+
+
+#@login_required
+#@user_passes_test(is_school_admin_or_director) # Seuls les admins/directeurs peuvent voir le tableau de bord
+def dashboard_charts_view(request):
+    user_school = request.user.school # Supposons que votre CustomUser a un lien vers l'école
+    
+    # Récupérer la période académique active ou la plus récente
+    current_academic_period = AcademicPeriod.objects.filter(school=user_school).order_by('-start_date').first()
+
+    charts = {}
+    
+    if user_school:
+        charts['students_by_class'] = ChartGenerator.generate_students_by_class_chart(user_school)
+        
+        if current_academic_period:
+            charts['grades_distribution'] = ChartGenerator.generate_grades_distribution_chart(user_school, current_academic_period)
+            charts['attendance_rate'] = ChartGenerator.generate_attendance_rate_chart(user_school, current_academic_period)
+            charts['payment_status'] = ChartGenerator.generate_payment_status_chart(user_school, current_academic_period)
+            charts['teacher_performance'] = ChartGenerator.generate_teacher_performance_chart(user_school, current_academic_period)
+            charts['class_comparison'] = ChartGenerator.generate_class_comparison_chart(user_school, current_academic_period)
+        
+        charts['monthly_payments'] = ChartGenerator.generate_monthly_payments_chart(user_school, datetime.now().year)
+    
+    context = {
+        'charts': charts,
+        'school_name': user_school.name if user_school else "Votre École"
+    }
+    return render(request, 'profiles/dashboard_charts.html', context)
+#def is_school_admin_or_director(user):
+ #   return user.is_authenticated and (user.user_type == 'SCHOOL_ADMIN' or user.user_type == 'DIRECTOR')
+#@login_required
+#@user_passes_test(is_school_admin_or_director)
+def direction_create_teacher(request): # C'est cette fonction qui est pointée par l'erreur
+    user_school = request.user.school
+
+    if request.method == 'POST':
+        # Supprimez school_instance ici si elle était présente
+        form = TeacherRegistrationForm(request.POST) # Ou TeacherCreationForm si c'est le nom que vous utilisez ici
+        if form.is_valid():
+            teacher = form.save(school=user_school)
+            messages.success(request, f"L'enseignant {teacher.first_name} {teacher.last_name} a été créé avec succès.")
+            return redirect('profiles:direction_manage_users')
+        else:
+            messages.error(request, "Veuillez corriger les erreurs dans le formulaire.")
+    else:
+        # Supprimez school_instance ici si elle était présente
+        form = TeacherRegistrationForm() # Ou TeacherCreationForm si c'est le nom que vous utilisez ici
+
+    context = {
+        'form': form,
+        'school_name': user_school.name if user_school else "Votre École"
+    }
+    return render(request, 'profiles/direction_create_teacher.html', context) # Assurez-vous que le template est correct ici
+
+# --- Nouvelle Vue : direction_teacher_Registration ---
+#@login_required
+#@user_passes_test(is_school_admin_or_director)
+def direction_teacher_registration(request):
+    user_school = request.user.school # Récupérer l'école de l'utilisateur connecté
+
+    if request.method == 'POST':
+        # Ne passez PAS school_instance ici pour le POST
+        form = TeacherRegistrationForm(request.POST) 
+        if form.is_valid():
+            # Passez l'instance de l'école à la méthode save() du formulaire
+            teacher = form.save(school=user_school) 
+            messages.success(request, f"L'enseignant {teacher.first_name} {teacher.last_name} a été enregistré avec succès.")
+            return redirect('profiles:direction_manage_users') # Redirige vers la liste des utilisateurs
+        else:
+            messages.error(request, "Veuillez corriger les erreurs dans le formulaire.")
+    else:
+        # Ne passez PAS school_instance ici pour le GET
+        form = TeacherRegistrationForm() 
+
+    context = {
+        'form': form,
+        'school_name': user_school.name if user_school else "Votre École"
+    }
+    return render(request, 'profiles/direction_teacher_registration.html', context)
+
+# ... (le reste de vos vues) ...
+
+@login_required
+@user_passes_test(is_direction, login_url='/login/')
+def course_create(request):
+    user = request.user # La direction connectée
+
+    if not user.school:
+        messages.error(request, "Votre compte n'est pas lié à une école. Impossible d'ajouter un cours.")
+        return redirect('profiles:direction_dashboard') # Ou une autre page pertinente
+
+    if request.method == 'POST':
+        # Passez request et school à votre formulaire
+        form = CourseForm(request.POST, request=request, school=user.school)
+        if form.is_valid():
+            course = form.save() # Le .save() du formulaire gérera l'assignation de l'école et les M2M
+            messages.success(request, f"Le cours '{course.name}' a été ajouté avec succès.")
+            return redirect('profiles:course_list') # Redirigez vers une liste des cours (à créer aussi)
+        else:
+            messages.error(request, "Erreur lors de l'ajout du cours. Veuillez corriger les erreurs ci-dessous.")
+    else: # GET request
+        # Instanciez un formulaire vide pour l'affichage
+        form = CourseForm(request=request, school=user.school)
+
+    context = {
+        'form': form,
+        'title': "Ajouter un nouveau Cours"
+    }
+    return render(request, 'profiles/course_form.html', context) # Assurez-vous que ce template existe

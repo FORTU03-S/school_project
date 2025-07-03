@@ -17,6 +17,7 @@ urlpatterns = [
     #path('register/parent/', views.register_parent_view, name='register_parent'),
     path('register/teacher/', views.register_teacher_view, name='register_teacher'),
     path('home/', views.home_view, name='home'),
+    path('direction/users/create-teacher/', views.direction_create_teacher, name='direction_create_teacher'), # NOUVEAU
 
     # PAGES D'ACCUEIL ET DASHBOARDS (UNE SEULE DÉFINITION)
     path('', views.home_view, name='home'),
@@ -25,7 +26,7 @@ urlpatterns = [
     path('direction-dashboard/', views.direction_dashboard_view, name='direction_dashboard'),
     path('accounting-dashboard/', views.accounting_dashboard_view, name='accounting_dashboard'),
 
-    # GESTION DES UTILISATEURS (Direction)
+    # GESTION DES UTILISATEURS (D irection)
     path('direction/users/', views.direction_manage_users, name='direction_manage_users'),
     path('direction/users/<int:user_id>/approve/', views.direction_approve_user, name='direction_approve_user'),
     path('direction/manage-class-assignments/', views.direction_manage_class_assignments, name='direction_manage_class_assignments'),
@@ -38,6 +39,7 @@ urlpatterns = [
     #path('courses/', views.course_list, name='course_list'),
     path('classes/<int:classe_id>/courses/', views.course_list, name='class_courses'), # Ensure this is present if class-filtered courses are needed
     path('courses/', views.all_courses_view, name='course_list'),
+    path('dashboard-charts/', views.dashboard_charts_view, name='dashboard_charts'),
     # FONCTIONNALITÉS ENSEIGNANT
     path('teacher/students/', views.teacher_list_students_view, name='teacher_list_students_view'),
     path('teacher/class/<int:class_id>/manage-students/', views.teacher_add_remove_students_to_class, name='teacher_add_remove_students_to_class'),

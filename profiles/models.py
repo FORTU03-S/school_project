@@ -9,8 +9,9 @@ from django.utils import timezone
 from django.conf import settings
 import string
 import random
+import logging
 
-from school.models import School, Classe
+logger = logging.getLogger(__name__)
 
 # --- Définition des rôles d'utilisateur ---
 class UserRole(models.TextChoices):
@@ -22,7 +23,7 @@ class UserRole(models.TextChoices):
     ADMIN = 'ADMIN', 'ADMIN'
     STAFF = 'STAFF', 'Personnel Administratif'
 
-# --- Manager personnalisé pour CustomUser (pour utiliser l'email comme identifiant) ---
+# --- Manager personnalisé pour CustomUser ---
 class CustomUserManager(BaseUserManager):
     """
     Manager de modèle personnalisé où l'email est l'identifiant unique
@@ -61,7 +62,7 @@ class CustomUser(AbstractUser):
     Utilise l'email comme champ d'authentification principal.
     Ajoute un champ 'user_type' pour catégoriser les utilisateurs.
     """
-    username = None # Supprime le champ username par défaut d'AbstractUser
+    username = None  # Supprime le champ username par défaut d'AbstractUser
     email = models.EmailField(_('adresse email'), unique=True)
     user_type = models.CharField(
         max_length=20,
@@ -79,7 +80,7 @@ class CustomUser(AbstractUser):
     is_approved = models.BooleanField(default=False, verbose_name="Approuvé")
 
     school = models.ForeignKey(
-        'school.School', # Référence par chaîne si School est dans une autre app
+        'school.School',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -87,12 +88,11 @@ class CustomUser(AbstractUser):
         verbose_name="École Affiliée"
     )
 
-    USERNAME_FIELD = 'email' # Définit l'email comme champ d'authentification
-    REQUIRED_FIELDS = ['user_type', 'first_name', 'last_name'] # Champs obligatoires à la création de superuser
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['user_type', 'first_name', 'last_name']
 
-    objects = CustomUserManager() # Utilise le manager personnalisé
+    objects = CustomUserManager()
 
-    # CORRECTION : _str_ doit avoir deux underscores de chaque côté
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.user_type})" if self.first_name and self.last_name else self.email
 
@@ -108,19 +108,40 @@ class CustomUser(AbstractUser):
 
 # --- Modèle Student (Élève) ---
 class Student(models.Model):
+    user_account = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='student_profile',
+        limit_choices_to={'user_type': UserRole.STUDENT},
+        verbose_name="Compte Utilisateur Élève"
+    )
+    
     first_name = models.CharField(max_length=100, verbose_name="Prénom de l'élève")
     last_name = models.CharField(max_length=100, verbose_name="Nom de l'élève")
     middle_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="Post-nom")
     date_of_birth = models.DateField(verbose_name="Date de naissance", null=True, blank=True)
-    gender = models.CharField(max_length=10, choices=[('Male', 'Homme'), ('Female', 'Femme'), ('Other', 'Autre')], blank=True, null=True)
+    gender = models.CharField(
+        max_length=10, 
+        choices=[('Male', 'Homme'), ('Female', 'Femme'), ('Other', 'Autre')], 
+        blank=True, 
+        null=True
+    )
     address = models.CharField(max_length=255, blank=True, null=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True, verbose_name="Numéro de Téléphone")
     email = models.EmailField(max_length=255, unique=True, null=True, blank=True)
     profile_picture = models.ImageField(upload_to='student_profiles/', null=True, blank=True)
-    student_id_code = models.CharField(max_length=50, unique=True, verbose_name="Code d'identification élève", blank=True, null=True)
+    student_id_code = models.CharField(
+        max_length=50, 
+        unique=True, 
+        verbose_name="Code d'identification élève", 
+        blank=True, 
+        null=True
+    )
 
     school = models.ForeignKey(
-        School,
+        'school.School',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -128,7 +149,7 @@ class Student(models.Model):
         verbose_name="École"
     )
     current_classe = models.ForeignKey(
-        Classe,
+        'school.Classe',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -136,15 +157,9 @@ class Student(models.Model):
         verbose_name="Classe Actuelle"
     )
     parents = models.ManyToManyField(
-        # ⭐ CORRECTION ICI : Utilisez settings.AUTH_USER_MODEL pour CustomUser ⭐
         settings.AUTH_USER_MODEL,
         related_name='children',
-        # ⭐ CORRECTION ICI : Accédez au UserRole via settings.AUTH_USER_MODEL ⭐
-        limit_choices_to={
-            'user_type': 'PARENT' # Le plus simple est de mettre la chaîne directe
-            # Si vous tenez à utiliser l'enum, il faut importer le CustomUser model lui-même
-            # et y accéder via CustomUser.UserRole.PARENT
-        },
+        limit_choices_to={'user_type': UserRole.PARENT},
         blank=True,
         verbose_name="Parents légaux"
     )
@@ -152,7 +167,7 @@ class Student(models.Model):
     is_active = models.BooleanField(default=True, verbose_name="Actif")
     enrollment_date = models.DateField(default=timezone.now, verbose_name="Date d'inscription")
 
-    def _str(self): # ⭐ CORRECTION: double underscore pour __str_ ⭐
+    def __str__(self):
         classe_info = self.current_classe.name if self.current_classe else 'Non assignée'
         return f"{self.first_name} {self.last_name} ({classe_info})"
 
@@ -160,34 +175,32 @@ class Student(models.Model):
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
 
-    # ⭐ IMPORTANTE MODIFICATION : LA LOGIQUE D'INSCRIPTION AUX COURS EST SUPPRIMÉE D'ICI ⭐
-    # Elle sera gérée dans la vue (ou un signal post_save) pour éviter des exécutions répétées.
     def save(self, *args, **kwargs):
-        if not self.student_id_code: # Si le code n'est pas déjà défini
-            # Méthode préférée : Basé sur le temps et une chaîne aléatoire (très faible risque de collision)
+        if not self.student_id_code:
             timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
             random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
             generated_code = f"STU-{timestamp}-{random_suffix}"
 
-            # Assurez-vous de l'unicité
             while Student.objects.filter(student_id_code=generated_code).exists():
                 random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
                 generated_code = f"STU-{timestamp}-{random_suffix}"
             self.student_id_code = generated_code
 
-        super().save(*args, **kwargs) # Appeler la méthode save originale du modèle
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Élève"
         verbose_name_plural = "Élèves"
         ordering = ['school__name', 'last_name', 'first_name']
+
+
 # --- Modèle Parent (Parent d'élève) ---
 class Parent(models.Model):
     """
     Informations spécifiques aux parents, distinctes de leur compte utilisateur.
     """
     user_account = models.OneToOneField(
-        CustomUser,
+        settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -207,7 +220,6 @@ class Parent(models.Model):
 
     is_approved = models.BooleanField(default=False, verbose_name="Approuvé")
 
-    # CORRECTION : _str_ doit avoir deux underscores de chaque côté
     def __str__(self):
         return f"{self.first_name} {self.last_name} (Approuvé: {self.is_approved})"
 
@@ -224,13 +236,13 @@ class Parent(models.Model):
 # --- Signaux pour lier les comptes CustomUser aux profils Student et Parent ---
 @receiver(post_save, sender=CustomUser)
 def create_or_update_profile_for_custom_user(sender, instance, created, **kwargs):
+    """
+    Signal pour créer ou mettre à jour automatiquement les profils Student et Parent
+    lors de la création/modification d'un CustomUser.
+    """
     if instance.user_type == UserRole.STUDENT:
-        # CORRECTION : Utiliser un logger au lieu d'un simple print pour les messages d'erreur/avertissement
-        # import logging
-        # logger = logging.getLogger(_name_)
         if not instance.email or not instance.first_name or not instance.last_name:
-            # logger.warning(f"ATTENTION: CustomUser {instance.email} de type STUDENT n'a pas les informations complètes pour créer un profil Student.")
-            print(f"ATTENTION: CustomUser {instance.email} de type STUDENT n'a pas les informations complètes pour créer un profil Student.")
+            logger.warning(f"ATTENTION: CustomUser {instance.email} de type STUDENT n'a pas les informations complètes pour créer un profil Student.")
             return
 
         defaults = {
@@ -238,35 +250,47 @@ def create_or_update_profile_for_custom_user(sender, instance, created, **kwargs
             'last_name': instance.last_name,
             'date_of_birth': instance.date_of_birth,
             'school': instance.school,
-            'student_id_code': f"STU-{instance.pk}-{timezone.now().year}"
+            'email': instance.email,
         }
-        if instance.school:
-            defaults['school'] = instance.school
 
-        student_profile, created = Student.objects.get_or_create(user_account=instance, defaults=defaults)
+        if not hasattr(instance, 'student_profile') or not instance.student_profile:
+            timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
+            random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            defaults['student_id_code'] = f"STU-{instance.pk}-{timestamp}-{random_suffix}"
+
+        student_profile, created = Student.objects.get_or_create(
+            user_account=instance, 
+            defaults=defaults
+        )
 
         if not created:
             student_profile.first_name = instance.first_name
             student_profile.last_name = instance.last_name
             student_profile.date_of_birth = instance.date_of_birth or student_profile.date_of_birth
             student_profile.school = instance.school or student_profile.school
+            student_profile.email = instance.email
             student_profile.save()
 
     elif instance.user_type == UserRole.PARENT:
         if not instance.email or not instance.first_name or not instance.last_name:
-            # logger.warning(f"ATTENTION: CustomUser {instance.email} de type PARENT n'a pas les informations complètes pour créer un profil Parent.")
-            print(f"ATTENTION: CustomUser {instance.email} de type PARENT n'a pas les informations complètes pour créer un profil Parent.")
+            logger.warning(f"ATTENTION: CustomUser {instance.email} de type PARENT n'a pas les informations complètes pour créer un profil Parent.")
+            return
+
+        if not instance.school:
+            logger.warning(f"ATTENTION: CustomUser {instance.email} de type PARENT n'a pas d'école assignée.")
             return
 
         defaults = {
             'first_name': instance.first_name,
             'last_name': instance.last_name,
+            'school': instance.school,
             'is_approved': instance.is_approved
         }
-        if instance.school:
-            defaults['school'] = instance.school
 
-        parent_profile, created = Parent.objects.get_or_create(user_account=instance, defaults=defaults)
+        parent_profile, created = Parent.objects.get_or_create(
+            user_account=instance, 
+            defaults=defaults
+        )
 
         if not created:
             parent_profile.first_name = instance.first_name
@@ -275,23 +299,60 @@ def create_or_update_profile_for_custom_user(sender, instance, created, **kwargs
             parent_profile.is_approved = instance.is_approved
             parent_profile.save()
 
-# --- Modèle Notification (Votre Notification en bas de models.py) ---
+
+# --- Modèle Notification ---
 class Notification(models.Model):
-    recipient = models.ForeignKey('profiles.CustomUser', on_delete=models.CASCADE, related_name='notifications', verbose_name="Destinataire")
-    sender = models.ForeignKey('profiles.CustomUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='sent_notifications', verbose_name="Expéditeur")
-    subject = models.CharField(max_length=255, verbose_name="Sujet" , blank=True, null=True)
+    """
+    Système de notifications pour les utilisateurs de l'application.
+    """
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE, 
+        related_name='notifications', 
+        verbose_name="Destinataire"
+    )
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='sent_notifications', 
+        verbose_name="Expéditeur"
+    )
+    subject = models.CharField(max_length=255, verbose_name="Sujet", blank=True, null=True)
     message = models.TextField(verbose_name="Message")
-    notification_type_choices = [
+    
+    NOTIFICATION_TYPE_CHOICES = [
         ('ABSENCE', 'Absence Enfant'),
         ('EVALUATION', 'Évaluation à venir'),
         ('HOMEWORK', 'Devoir à faire'),
-        ('QUIZ', 'Interrogation / Quiz'), # Ajouté pour correspondre à GradeForm
+        ('QUIZ', 'Interrogation / Quiz'),
         ('MESSAGE_TEACHER', 'Message de l\'enseignant'),
         ('PAYMENT', 'Statut de Paiement'),
         ('REPORT_CARD', 'Bulletin Scolaire'),
         ('GENERAL', 'Général'),
     ]
-    notification_type = models.CharField(max_length=50, choices=notification_type_choices, verbose_name="Type de notification")
+    
+    notification_type = models.CharField(
+        max_length=50, 
+        choices=NOTIFICATION_TYPE_CHOICES, 
+        verbose_name="Type de notification"
+    )
     is_read = models.BooleanField(default=False, verbose_name="Lu")
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name="Date/Heure")
     read_at = models.DateTimeField(null=True, blank=True, verbose_name="Lu à")
+
+    def __str__(self):
+        return f"{self.subject or 'Sans sujet'} - {self.recipient.full_name}"
+
+    def mark_as_read(self):
+        """Marque la notification comme lue."""
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save()
+
+    class Meta:
+        verbose_name = "Notification"
+        verbose_name_plural = "Notifications"
+        ordering = ['-timestamp']

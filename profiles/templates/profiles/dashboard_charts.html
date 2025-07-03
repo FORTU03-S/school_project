@@ -1,0 +1,101 @@
+{% extends 'base.html' %} {# Adaptez à votre template de base #}
+
+{% block title %}Tableau de Bord - {{ school_name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Tableau de Bord Statistique - {{ school_name }}</h2>
+    <p>Période Académique Actuelle : {{ current_academic_period.name }}</p> {# Ajoutez ceci si vous passez current_academic_period au contexte #}
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    {% if charts.students_by_class %}
+                        <img src="data:image/png;base64,{{ charts.students_by_class }}" class="img-fluid" alt="Répartition des élèves par classe">
+                    {% else %}
+                        <p>Impossible de générer le graphique des élèves par classe.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    {% if charts.grades_distribution %}
+                        <img src="data:image/png;base64,{{ charts.grades_distribution }}" class="img-fluid" alt="Distribution des notes">
+                    {% else %}
+                        <p>Impossible de générer le graphique de distribution des notes.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    {% if charts.attendance_rate %}
+                        <img src="data:image/png;base64,{{ charts.attendance_rate }}" class="img-fluid" alt="Taux de présence par classe">
+                    {% else %}
+                        <p>Impossible de générer le graphique du taux de présence.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    {% if charts.payment_status %}
+                        <img src="data:image/png;base64,{{ charts.payment_status }}" class="img-fluid" alt="Statuts des paiements">
+                    {% else %}
+                        <p>Impossible de générer le graphique des statuts de paiement.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    {% if charts.monthly_payments %}
+                        <img src="data:image/png;base64,{{ charts.monthly_payments }}" class="img-fluid" alt="Paiements mensuels">
+                    {% else %}
+                        <p>Impossible de générer le graphique des paiements mensuels.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    {% if charts.teacher_performance %}
+                        <img src="data:image/png;base64,{{ charts.teacher_performance }}" class="img-fluid" alt="Performance des enseignants">
+                    {% else %}
+                        <p>Impossible de générer le graphique de performance des enseignants.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    {% if charts.class_comparison %}
+                        <img src="data:image/png;base64,{{ charts.class_comparison }}" class="img-fluid" alt="Comparaison des classes">
+                    {% else %}
+                        <p>Impossible de générer le graphique de comparaison des classes.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

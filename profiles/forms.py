@@ -30,8 +30,8 @@ class CustomAuthenticationForm(forms.Form):
     def get_user(self):
         return self.user_cache
 
+
 class ParentCreationForm(forms.ModelForm):
-    # Champ pour le mot de passe initial du parent
     password = forms.CharField(widget=forms.PasswordInput, label="Mot de passe du Parent")
     password_confirm = forms.CharField(widget=forms.PasswordInput, label="Confirmer le mot de passe")
 
@@ -58,12 +58,12 @@ class ParentCreationForm(forms.ModelForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data["password"])
-        # Définir le type d'utilisateur et l'approuver par défaut lors de la création par la direction
-        user.user_type = CustomUser.UserRole.PARENT if hasattr(CustomUser, 'UserRole') else 'PARENT'
-        user.is_approved = True # La direction approuve le compte directement
+        user.user_type = UserRole.PARENT
+        user.is_approved = True
         if commit:
             user.save()
         return user
+
 
 class TeacherRegistrationForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput, label="Mot de passe")
@@ -96,7 +96,7 @@ class TeacherRegistrationForm(forms.ModelForm):
             self.add_error('password_confirm', "Les mots de passe ne correspondent pas.")
         return cleaned_data
 
-    def save(self, commit=True):
+    def save(self, commit=True, school=None):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data["password"])
         user.user_type = UserRole.TEACHER
@@ -105,6 +105,7 @@ class TeacherRegistrationForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
 
 class StudentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
@@ -122,48 +123,43 @@ class StudentForm(forms.ModelForm):
             if 'current_classe' in self.fields:
                 self.fields['current_classe'].queryset = Classe.objects.filter(school=user_school).order_by('name')
             
-            # Ne pas afficher les parents existants dans ce formulaire, car on en crée un nouveau.
-            # On va supprimer ce champ du formulaire StudentForm
             if 'parents' in self.fields:
-                del self.fields['parents'] # On ne gère plus la sélection de parents existants ici
+                del self.fields['parents']
 
         if is_parent_form:
-            # Assurez-vous que le student_id_code est également masqué ici
             if 'student_id_code' in self.fields:
                 self.fields['student_id_code'].widget = forms.HiddenInput()
                 self.fields['student_id_code'].required = False
 
-            if 'school' in self.fields: self.fields['school'].widget = forms.HiddenInput(); self.fields['school'].required = False
-            if 'current_classe' in self.fields: self.fields['current_classe'].widget = forms.HiddenInput(); self.fields['current_classe'].required = False
-            if 'is_active' in self.fields: self.fields['is_active'].widget = forms.HiddenInput(); self.fields['is_active'].required = False
-            if 'enrollment_date' in self.fields: self.fields['enrollment_date'].widget = forms.HiddenInput(); self.fields['enrollment_date'].required = False
+            hidden_fields = ['school', 'current_classe', 'is_active', 'enrollment_date']
+            for field in hidden_fields:
+                if field in self.fields:
+                    self.fields[field].widget = forms.HiddenInput()
+                    self.fields[field].required = False
             
-            # Si is_parent_form, le champ parents devrait être masqué ou inexistant aussi
             if 'parents' in self.fields:
                 del self.fields['parents']
-
 
     class Meta:
         model = Student
         fields = [
             'first_name', 'last_name', 'middle_name',
             'date_of_birth', 'gender',
-            'address', 'phone_number', 'email', # L'email ici est pour l'élève, pas le parent
+            'address', 'phone_number', 'email',
             'profile_picture',
             'student_id_code', 
-            'school', 'current_classe', # 'parents' est retiré des fields ici
+            'school', 'current_classe',
             'is_active', 'enrollment_date',
         ]
         labels = {
-            # ... (vos labels existants) ...
-            'email': "Adresse Email de l'élève", # Pour éviter la confusion avec l'email du parent
+            'email': "Adresse Email de l'élève",
         }
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'enrollment_date': forms.DateInput(attrs={'type': 'date'}),
         }
-        
-        
+
+
 class DirectionUserApprovalForm(forms.ModelForm):
     class Meta:
         model = CustomUser
@@ -174,6 +170,9 @@ class DirectionUserApprovalForm(forms.ModelForm):
             'school': "École Affiliée"
         }
 
+
+#CustomUser = get_user_model()
+
 class ClassAssignmentForm(forms.ModelForm):
     class Meta:
         model = ClassAssignment
@@ -183,14 +182,35 @@ class ClassAssignmentForm(forms.ModelForm):
             'classe': "Classe",
             'academic_period': "Période Académique"
         }
-    # CORRECTION : _init_ doit avoir deux underscores de chaque côté
+
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs) # CORRECTION : Utiliser super().init_
-        self.fields['teacher'].queryset = CustomUser.objects.filter(
-            Q(user_type=UserRole.TEACHER) | Q(user_type=UserRole.ADMIN)
-        )
-        self.fields['classe'].queryset = Classe.objects.all()
-        self.fields['academic_period'].queryset = AcademicPeriod.objects.all().order_by('-start_date')
+        # Extrait user_school des kwargs avant d'appeler super()
+        user_school = kwargs.pop('user_school', None)
+        super().__init__(*args, **kwargs)
+
+        if user_school:
+            # Filtre les enseignants par l'école actuelle et le type d'utilisateur
+            self.fields['teacher'].queryset = CustomUser.objects.filter(
+                Q(user_type=UserRole.TEACHER) | Q(user_type=UserRole.ADMIN),
+                school=user_school, # <-- CRUCIAL : Filtre par école
+                is_active=True # <-- Bonne pratique pour n'afficher que les utilisateurs actifs
+            ).order_by('first_name', 'last_name')
+
+            # Filtre les classes par l'école actuelle
+            self.fields['classe'].queryset = Classe.objects.filter(
+                school=user_school
+            ).order_by('name')
+
+            # Filtre les périodes académiques par l'école actuelle
+            self.fields['academic_period'].queryset = AcademicPeriod.objects.filter(
+                school=user_school
+            ).order_by('-start_date')
+        else:
+            # Si aucune user_school n'est fournie, définissez des querysets vides ou gérez l'erreur de manière appropriée
+            # Cela évite d'afficher tous les enseignants si le contexte de l'école est manquant
+            self.fields['teacher'].queryset = CustomUser.objects.none()
+            self.fields['classe'].queryset = Classe.objects.none()
+            self.fields['academic_period'].queryset = AcademicPeriod.objects.none()
 
 class CustomUserCreationForm(UserCreationForm):
     class Meta:
@@ -213,16 +233,15 @@ class CustomUserCreationForm(UserCreationForm):
             'user_permissions',
         )
 
-    # AJOUTEZ CETTE MÉTHODE clean()
     def clean(self):
         cleaned_data = super().clean()
-        # Ici, nous allons imprimer les erreurs si le formulaire n'est pas valide
         if not self.is_valid():
             print("\n--- DEBUG FORM ERRORS ---")
             print("Form errors:", self.errors)
             print("Non-field errors:", self.non_field_errors())
             print("--- END DEBUG FORM ERRORS ---\n")
         return cleaned_data
+
 
 class CustomUserChangeForm(UserChangeForm):
     class Meta:
@@ -242,7 +261,7 @@ class CustomUserChangeForm(UserChangeForm):
             'is_approved',
             'groups',
             'user_permissions',
-            'password', # Pour la modification du mot de passe (dans UserChangeForm, c'est 'password')
+            'password',
         )
         labels = {
             'email': "Email",
@@ -262,77 +281,33 @@ class CustomUserChangeForm(UserChangeForm):
             'password': "Mot de Passe"
         }
 
-class GradeForm(forms.ModelForm):
-    EVALUATION_CHOICES = [
-        ('EXERCISE_CLASS', 'Exercice en classe'),
-        ('HOMEWORK', 'Devoir à la maison'),
-        ('QUIZ', 'Interrogation / Quiz'),
-        ('EXAM', 'Examen'),
-        ('PROJECT', 'Projet'),
-        ('PARTICIPATION', 'Participation'),
-        ('OTHER', 'Autre'),
-    ]
-    evaluation_type = forms.ChoiceField(choices=EVALUATION_CHOICES, label="Type d'Évaluation")
-
-    class Meta:
-        model = Grade
-        fields = ['enrollment', 'score', 'evaluation_type']
-        widgets = {
-            'enrollment': forms.Select(attrs={'class': 'form-control'}),
-            'score': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-        }
-
-    # CORRECTION : _init_ doit avoir deux underscores de chaque côté
-    def __init__(self, *args, **kwargs):
-        teacher = kwargs.pop('teacher', None)
-        super()._init_(*args, **kwargs) # CORRECTION : Utiliser super().init_
-        if teacher:
-            # Assurez-vous que le modèle Enrollment est importé ou défini si vous l'utilisez ici.
-            # Example: from school.models import Enrollment # ou là où il est défini
-            # self.fields['enrollment'].queryset = Enrollment.objects.filter(
-            #     course__teachers=teacher,
-            #     academic_period__is_current=True
-            # )
-            pass # Laissez ceci vide si Enrollment n'est pas encore défini ou importé
 
 class NotificationForm(forms.ModelForm):
-    def _init_(self, *args, **kwargs):
-        # EXTRAIRE 'sender_user' de kwargs AVANT d'appeler super()._init_
+    def __init__(self, *args, **kwargs):
         self.sender_user = kwargs.pop('sender_user', None) 
-        # Le 'None' est pour le cas où sender_user ne serait pas passé, pour éviter une KeyError
+        super().__init__(*args, **kwargs)
 
-        super()._init_(*args, **kwargs)
-
-        # Maintenant, vous pouvez utiliser self.sender_user pour configurer le formulaire si nécessaire
-        # Par exemple, pour définir l'expéditeur initial ou cacher le champ
-        if 'sender' in self.fields: # Vérifiez que le champ 'sender' existe dans le formulaire
+        if 'sender' in self.fields:
             self.fields['sender'].widget = forms.HiddenInput()
             if self.sender_user:
-                self.fields['sender'].initial = self.sender_user.pk # Utilisez la PK pour les FKs
+                self.fields['sender'].initial = self.sender_user.pk
 
-        # Si le champ 'recipient' est un ModelChoiceField et que vous voulez le filtrer
-        # par l'école de l'expéditeur ou d'autres critères :
         if 'recipient' in self.fields and self.sender_user and self.sender_user.school:
-            # Filtrez les destinataires pour qu'ils soient dans la même école que l'expéditeur
-            self.fields['recipient'].queryset = User.objects.filter(school=self.sender_user.school)
+            self.fields['recipient'].queryset = CustomUser.objects.filter(school=self.sender_user.school)
 
     class Meta:
         model = Notification
-        # Incluez les champs que l'utilisateur voit et/ou remplit.
-        # 'sender' est inclus ici car nous le gérons dans _init_ et le cachons.
-        # 'recipient' est inclus car l'utilisateur peut le choisir (ou il est filtré).
         fields = ['recipient', 'subject', 'message', 'notification_type'] 
         widgets = {
             'message': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Votre message ici...'}),
-            # 'sender': forms.HiddenInput(), # C'est mieux de le définir dans _init_ pour plus de flexibilité
         }
         labels = {
             'recipient': "Destinataire",
             'subject': "Sujet de la notification",
             'message': "Contenu du message",
             'notification_type': "Type de notification",
-            #'sender': "Expéditeur", # Ce label ne sera pas visible car le champ est caché
         }
+
 
 class AttendanceForm(forms.ModelForm):
     class Meta:
@@ -346,6 +321,7 @@ class AttendanceForm(forms.ModelForm):
             'reason_for_absence': 'Raison de l\'absence',
         }
 
+
 class DisciplinaryRecordForm(forms.ModelForm):
     class Meta:
         model = DisciplinaryRecord
@@ -355,6 +331,7 @@ class DisciplinaryRecordForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'rows': 3}),
             'action_taken': forms.Textarea(attrs={'rows': 2}),
         }
+
 
 class AcademicPeriodForm(forms.ModelForm):
     class Meta:
@@ -371,10 +348,9 @@ class AcademicPeriodForm(forms.ModelForm):
             'end_date': forms.DateInput(attrs={'type': 'date'}),
         }
 
-    # CORRECTION : _init_ doit avoir deux underscores de chaque côté
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
-        super().__init__(*args, **kwargs) # CORRECTION : Utiliser super().init_
+        super().__init__(*args, **kwargs)
 
         if user and hasattr(user, 'school') and user.school:
             self.fields['school'].queryset = School.objects.filter(pk=user.school.pk)
@@ -383,91 +359,116 @@ class AcademicPeriodForm(forms.ModelForm):
             self.fields['school'].help_text = "Votre compte n'est pas lié à une école. Veuillez contacter l'administrateur."
             self.fields['school'].disabled = True
 
+#CustomUser = get_user_model() # Si nécessaire pour d'autres champs filtrés
 class ClasseForm(forms.ModelForm):
-    # Ajoutez ce champ pour permettre de sélectionner les cours au moment de la création/modification de la classe
-    # Le queryset sera filtré dans _init_
-    courses = forms.ModelMultipleChoiceField(
-        queryset=Course.objects.all(), # Sera filtré par école et période active
-        required=False, # Un cours peut être ajouté plus tard si désiré
-        label="Cours associés à cette classe"
-    )
-
     class Meta:
         model = Classe
-        # Assurez-vous que 'courses' est dans la liste des champs
-        fields = ['name', 'level', 'description', 'teachers', 'courses']
-        # 'school' et 'academic_period' seront gérés dans la vue ou via initial data
+        # Laissez 'school' ici si vous voulez qu'il apparaisse sur le formulaire (en lecture seule)
+        # Sinon, retirez-le et définissez-le dans la méthode save() du formulaire ou dans la vue.
+        fields = ['name', 'school', 'level', 'description'] # Ajustez selon votre modèle Classe
 
     def __init__(self, *args, **kwargs):
-        self.request = kwargs.pop('request', None)
-        super().__init__(*args, **kwargs)
+        # 1. Extrait 'request' (si passé) des kwargs
+        self.request = kwargs.pop('request', None) # <-- AJOUTÉ ICI : Extrait 'request'
+        
+        # 2. Extrait 'school' (si passé) des kwargs (celui que nous avions déjà)
+        self.user_school = kwargs.pop('school', None) 
+        
+        super().__init__(*args, **kwargs) # <-- Appel à la classe parente avec les kwargs restants
 
-        if self.request and self.request.user.school:
-            user_school = self.request.user.school
-            self.fields['teachers'].queryset = self.fields['teachers'].queryset.filter(school=user_school)
-
-            # Filtrez les cours pour ne montrer que ceux de l'école et de la période académique active
-            active_academic_period = AcademicPeriod.objects.filter(
-                school=user_school,
-                is_current=True
-            ).first()
-
-            if active_academic_period:
-                self.fields['courses'].queryset = Course.objects.filter(
-                    school=user_school,
-                    academic_period=active_academic_period
-                ).order_by('name')
+        # Maintenant, utilisez self.user_school pour initialiser/gérer le champ 'school'
+        if 'school' in self.fields:
+            if self.user_school:
+                self.fields['school'].initial = self.user_school
+                self.fields['school'].widget.attrs['readonly'] = 'readonly'
+                # Ou si vous voulez le désactiver complètement
+                # self.fields['school'].disabled = True
             else:
-                # Si aucune période active, ne proposez pas de cours ou avertissez
-                self.fields['courses'].queryset = Course.objects.none()
-                if not self.instance.pk: # Si c'est une nouvelle classe
-                    self.fields['courses'].help_text = "Aucun cours disponible car aucune période académique active n'est définie pour votre école."
+                self.fields['school'].widget = forms.HiddenInput()
 
-            # Si c'est une mise à jour d'une instance existante, pré-remplir les cours déjà liés
-            if self.instance.pk:
-                self.initial['courses'] = self.instance.courses_taught.all() # courses_taught est le related_name de Course.classes
-
+        # Si vous avez d'autres logiques de filtrage qui nécessitent l'objet request
+        # ou les données de l'utilisateur (comme user.school), utilisez self.request ou self.user_school
+        # Exemple si vous deviez filtrer un autre champ basé sur l'utilisateur de la requête :
+        # if self.request and self.request.user.is_authenticated:
+        #     self.fields['some_other_field'].queryset = SomeModel.objects.filter(owner=self.request.user)
 class CourseForm(forms.ModelForm):
-    # Si vous avez besoin de filtrer les choices pour les champs ManyToMany/ForeignKey ici,
-    # vous pouvez le faire dans _init_ du formulaire ou laisser la vue le faire.
-    # Pour l'instant, nous allons nous assurer que les champs sont corrects.
-
     class Meta:
         model = Course
-        # LISTEZ ICI TOUS LES CHAMPS QUE VOUS VOULEZ INCLURE DANS LE FORMULAIRE.
-        # Le champ 'classe' N'EXISTE PLUS dans le modèle Course.
-        # Le nouveau champ est 'classes' (au pluriel) et c'est un ManyToManyField.
-        fields = [
-            'school',          # Si vous voulez que l'école soit sélectionnable dans le formulaire
-            'name',
-            'subjects',
-            'code',
-            'description',
-            'credits',
-            'teachers',        # ManyToManyField vers CustomUser (enseignants)
-            'classes',         # <-- C'EST LE NOM CORRECT POUR LE MANYTO MANYFIELD
-            'academic_period'  # ForeignKey vers AcademicPeriod
-        ]
-        # Vous pouvez également exclure des champs si vous les définissez ou les remplissez manuellement dans la vue.
-        # Par exemple, si 'school' est toujours défini automatiquement par l'utilisateur connecté:
-        # exclude = ['school']
+        fields = ['name', 'code', 'description', 'academic_period', 'classes', 'teachers']
+        labels = {
+            'name': "Nom du Cours",
+            'code': "Code du Cours",
+            'description': "Description",
+            'academic_period': "Période Académique",
+            'classes': "Classes Associées",
+            'teachers': "Enseignants Assignés",
+        }
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 4}),
+            'classes': forms.CheckboxSelectMultiple(),
+            'teachers': forms.CheckboxSelectMultiple(),
+        }
 
     def __init__(self, *args, **kwargs):
-        # Vous pouvez passer 'school' ou d'autres paramètres ici si nécessaire pour filtrer les querysets
-        user_school = kwargs.pop('school', None) # Récupère l'école passée lors de l'instanciation du form
-        super().__init__(*args, **kwargs)
+        # --- C'est la partie CRUCIALE pour résoudre le TypeError ---
+        # 1. Extrait 'request' des kwargs
+        self.request = kwargs.pop('request', None) 
+        # 2. Extrait 'school' des kwargs
+        self.user_school = kwargs.pop('school', None) 
+        
+        # Maintenant, appelez la méthode _init_ de la classe parente
+        # avec les kwargs qui ne contiennent plus 'request' ni 'school'.
+        super().__init__(*args, **kwargs) # <-- Cette ligne est la ligne 412 selon votre traceback
 
-        # Filtrer les classes pour l'école de l'utilisateur
-        if 'classes' in self.fields and user_school:
-            self.fields['classes'].queryset = Classe.objects.filter(school=user_school)
+        # --- Maintenant, utilisez self.user_school et self.request pour vos filtres ---
+        if self.user_school:
+            self.fields['academic_period'].queryset = AcademicPeriod.objects.filter(
+                school=self.user_school
+            ).order_by('-start_date')
+            
+            self.fields['classes'].queryset = Classe.objects.filter(
+                school=self.user_school
+            ).order_by('name')
+            
+            # Note: pour les enseignants, assurez-vous que 'user_type' est bien la valeur correcte
+            self.fields['teachers'].queryset = CustomUser.objects.filter(
+                Q(user_type='TEACHER') | Q(user_type='ADMIN'), 
+                school=self.user_school,
+                is_active=True
+            ).order_by('first_name', 'last_name')
+        else:
+            # Si l'école n'est pas fournie, définissez des querysets vides
+            self.fields['academic_period'].queryset = AcademicPeriod.objects.none()
+            self.fields['classes'].queryset = Classe.objects.none()
+            self.fields['teachers'].queryset = CustomUser.objects.none()
 
-        # Filtrer les enseignants pour l'école de l'utilisateur
-        if 'teachers' in self.fields and user_school:
-            self.fields['teachers'].queryset = CustomUser.objects.filter(user_type='TEACHER', school=user_school)
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self.user_school and not instance.school_id:
+            instance.school = self.user_school
+        
+        if commit:
+            instance.save()
+            self.save_m2m() # Important pour les champs ManyToMany (classes, teachers)
+        return instance
 
-        # Si le champ school est dans le formulaire, le limiter à l'école de l'utilisateur
-        if 'school' in self.fields and user_school:
-            self.fields['school'].queryset = School.objects.filter(pk=user_school.pk)
-            # Et si vous voulez le désactiver pour qu'il ne soit pas modifiable par l'utilisateur:
-            self.fields['school'].widget.attrs['disabled'] = 'disabled'
-            self.fields['school'].required = False # Si désactivé, il ne doit pas être requis du POST direct
+class TeacherCreationForm(forms.ModelForm): # Définissez cette classe
+    password = forms.CharField(widget=forms.PasswordInput, help_text="Entrez le mot de passe de l'enseignant.")
+
+    class Meta:
+        model = CustomUser
+        fields = ('first_name', 'last_name', 'email', 'password')
+
+    
+
+    def save(self, commit=True, school=None):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password"])
+        user.user_type = 'TEACHER'
+        if school:
+            user.school = school
+        if commit:
+            user.save()
+        return user
+
+# ... (votre ClassAssignmentForm ici) ...

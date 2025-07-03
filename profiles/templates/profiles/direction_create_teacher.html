@@ -1,0 +1,41 @@
+{# profiles/templates/profiles/direction_teacher_registration.html #}
+{% extends 'base.html' %}
+{% load crispy_forms_tags %} {# Si vous utilisez crispy forms #}
+
+{% block title %}Enregistrer Enseignant - {{ school_name }}{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-lg p-4">
+                <h1 class="h3 mb-4 text-center text-primary">Enregistrer un Nouvel Enseignant</h1>
+                <p class="text-muted text-center mb-4">Remplissez les informations pour créer un compte enseignant à {{ school_name }}.</p>
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form|crispy }} {# ou {{ form.as_p }} si pas de crispy forms #}
+                    
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save me-2"></i> Enregistrer l'Enseignant
+                        </button>
+                        <a href="{% url 'profiles:direction_dashboard' %}" class="btn btn-outline-secondary btn-lg">
+                            <i class="fas fa-times-circle me-2"></i> Annuler
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
