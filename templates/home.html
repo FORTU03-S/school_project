@@ -1,849 +1,1035 @@
-{# school_project/templates/home.html #}
-
 {% load static %}
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SYBEMAcademia - La Solution Éducative Complète</title>
 
-{% block title %}SYBEMAcademia - La Solution Éducative Complète{% endblock %}
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Sigmar&display=swap"
+      rel="stylesheet"
+    />
 
-{% block head %}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Montserrat:wght@400;700&family=Sigmar&family=Nunito+Sans:opsz,wght@6..12,400;6..12,700&display=swap" rel="stylesheet">
-    
     <style>
-        /* Début du CSS incorporé */
-        :root {
-          --primary-color: #0a0a0a;
-          --secondary-color: #f5f8f8;
-          --accent-color: #f8e805;
-          --text-color: #e8e8e8;
-          --font-title: 'Sigmar', cursive;
-          --font-body: 'Roboto Condensed', sans-serif;
-        }
+      /* Variables CSS */
+      :root {
+        --primary-color: #0a0a0a;
+        --secondary-color: #f5f8f8;
+        --accent-color: #f8e805;
+        --text-color: #e8e8e8;
+        --bg-color: #191919;
+        --blue-start: #054af8;
+        --blue-end: #0862f3;
+        --card-bg: #2e3a59;
+        --card-bg-end: #1a2b46;
+        --font-title: "Sigmar", cursive;
+        --font-body: "Roboto Condensed", sans-serif;
+      }
 
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
+      /* Reset et styles de base */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-          font-family: var(--font-body);
-          color: var(--text-color);
-          background:rgb(25, 25, 26);
-          line-height: 1.6; /* Corrigé ici */
-          overflow-x: hidden;
-        }
-        
-        /* Création de l'animation smooth (pour la section services) */
-        .scroll-list-wrap {
-          width: 100%;
-          height: auto; /* Changé à auto pour s'adapter au contenu */
-          overflow: auto;
-          padding: 50px;
-          box-shadow: 0px 7px 46px 0px rgba(0, 0, 0, 0.3);
-          background: #1c2e4a;
-          border-radius: 8px;
-          background-image: linear-gradient(147deg,#2e3a59 0%, #1a2b46 74%);
-          margin-top: 40px;
-          margin-bottom: 40px; /* Ajouté pour espacement */
-        }
+      html {
+        scroll-behavior: smooth;
+      }
 
-        /* Navigation améliorée */
-        .navbar {
-          position: fixed;
-          display: flex;
-          font-weight: bolder;
-          top: 0;
-          width: 100%;
-          z-index: 1000;
-          background: linear-gradient(147deg,#054af8 0%, #0862f3 74%);
-          padding: 1rem 2rem;
-          border-bottom: 1px solid #f7f2f2;
-          justify-content: space-between; /* Pour espacer le logo et les liens */
-          align-items: center;
-        }
+      body {
+        font-family: var(--font-body);
+        color: var(--text-color);
+        background: var(--bg-color);
+        line-height: 1.6;
+        overflow-x: hidden;
+      }
 
-        .navbar-brand-custom {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: var(--secondary-color);
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 1.5rem;
-        }
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6 {
+        font-family: var(--font-body);
+        font-weight: 700;
+      }
 
-        .navbar-brand-custom:hover {
-            color: var(--accent-color);
-        }
+      .title-font {
+        font-family: var(--font-title);
+      }
 
-        .navbar-brand-custom .brand-logo {
-            height: 40px; /* Ajustez la taille de votre logo */
-            width: auto;
-        }
+      /* Utilitaires */
+      .gradient-blue {
+        background: linear-gradient(
+          147deg,
+          var(--blue-start) 0%,
+          var(--blue-end) 74%
+        );
+      }
 
-        .menu-btn {
-          position: fixed;
-          top: 1.5rem;
-          right: 2rem;
-          z-index: 1001;
-          cursor: pointer;
+      .gradient-card {
+        background: linear-gradient(
+          147deg,
+          var(--card-bg) 0%,
+          var(--card-bg-end) 74%
+        );
+      }
+
+      .comic-button {
+        display: inline-block;
+        padding: 15px 30px;
+        border-radius: 10px;
+        font-weight: bold;
+        font-size: 1.1rem;
+        text-decoration: none;
+        color: var(--text-color);
+        border: 2px solid var(--secondary-color);
+        background: linear-gradient(
+          147deg,
+          var(--card-bg) 0%,
+          var(--card-bg-end) 74%
+        );
+        transition: all 0.3s ease;
+        margin-top: 50px;
+      }
+
+      .comic-button:hover {
+        background: var(--accent-color);
+        color: var(--primary-color);
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      }
+
+      /* Navigation */
+      .navbar {
+        position: fixed;
+        top: 0;
+        width: 100%;
+        z-index: 1000;
+        background: linear-gradient(
+          147deg,
+          var(--blue-start) 0%,
+          var(--blue-end) 74%
+        );
+        padding: 1rem 2rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .nav-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .navbar-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--secondary-color);
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 1.5rem;
+      }
+
+      .navbar-brand:hover {
+        color: var(--accent-color);
+      }
+
+      .brand-logo {
+        width: 40px;
+        height: 40px;
+        background: var(--accent-color);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary-color);
+        font-weight: bold;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+      }
+
+      .nav-links ul {
+        display: flex;
+        gap: 2rem;
+        list-style: none;
+        margin: 0;
+      }
+
+      .nav-links a {
+        color: black;
+        text-decoration: none;
+        font-size: 1.1rem;
+        font-weight: 500;
+        transition: color 0.3s ease;
+      }
+
+      .nav-links a:hover {
+        color: var(--accent-color);
+      }
+
+      .login-btn {
+        background: var(--secondary-color);
+        color: var(--primary-color);
+        padding: 8px 15px;
+        border-radius: 5px;
+        font-weight: bold;
+        transition: background 0.3s ease;
+        text-decoration: none;
+      }
+
+      .login-btn:hover {
+        background: var(--accent-color);
+      }
+
+      /* Menu mobile */
+      .menu-btn {
+        display: none;
+        flex-direction: column;
+        cursor: pointer;
+        padding: 8px;
+      }
+
+      .menu-btn span {
+        width: 25px;
+        height: 2px;
+        background: var(--secondary-color);
+        margin: 3px 0;
+        transition: all 0.3s ease;
+      }
+
+      .mobile-nav {
+        display: none;
+        background: linear-gradient(
+          147deg,
+          var(--card-bg) 0%,
+          var(--card-bg-end) 74%
+        );
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 1rem;
+      }
+
+      .mobile-nav ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .mobile-nav li {
+        margin: 1rem 0;
+      }
+
+      .mobile-nav a {
+        color: var(--text-color);
+        text-decoration: none;
+        font-size: 1.1rem;
+        display: block;
+        padding: 0.5rem 0;
+        transition: color 0.3s ease;
+      }
+
+      .mobile-nav a:hover {
+        color: var(--accent-color);
+      }
+
+      /* Sections */
+      .section {
+        min-height: 100vh;
+        padding: 80px 2rem 50px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+      }
+
+      .hero {
+        background: var(--bg-color);
+      }
+
+      .hero h1 {
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        margin-bottom: 20px;
+        font-weight: bold;
+      }
+
+      .hero .highlight {
+        color: var(--accent-color);
+        font-family: var(--font-title);
+      }
+
+      .hero p {
+        font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+        margin-bottom: 30px;
+        max-width: 600px;
+      }
+
+      /* About section */
+      .about-wrapper {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 50px;
+        max-width: 1200px;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .profile-img {
+        width: 300px;
+        height: 300px;
+        border-radius: 50px;
+        background: linear-gradient(
+          147deg,
+          var(--card-bg) 0%,
+          var(--card-bg-end) 74%
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .about-content {
+        flex: 1;
+        min-width: 300px;
+        text-align: left;
+      }
+
+      .about-content h3 {
+        color: var(--secondary-color);
+        font-size: 2.2rem;
+        margin-bottom: 30px;
+      }
+
+      .about-content p {
+        font-size: 1.1rem;
+        line-height: 1.8;
+        margin-bottom: 20px;
+      }
+
+      .highlight {
+        color: var(--accent-color);
+        font-weight: bold;
+      }
+
+      /* Services section */
+      .services-container {
+        background: linear-gradient(
+          147deg,
+          var(--card-bg) 0%,
+          var(--card-bg-end) 74%
+        );
+        border-radius: 20px;
+        padding: 50px;
+        box-shadow: 0px 7px 46px 0px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        max-width: 1200px;
+        width: 100%;
+      }
+
+      .services-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 30px;
+        margin-top: 40px;
+      }
+
+      .service-card {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 15px;
+        padding: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        transition: all 0.3s ease;
+      }
+
+      .service-card:hover {
+        border-color: var(--accent-color);
+        transform: translateY(-5px);
+      }
+
+      .service-icon {
+        width: 50px;
+        height: 50px;
+        background: var(--accent-color);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 15px;
+        color: var(--primary-color);
+        font-size: 1.5rem;
+      }
+
+      .service-card h4 {
+        color: var(--accent-color);
+        font-size: 1.3rem;
+        margin-bottom: 10px;
+      }
+
+      .service-card p {
+        color: var(--text-color);
+        line-height: 1.6;
+      }
+
+      /* Partners section */
+      .partners-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 30px;
+        margin-top: 40px;
+        max-width: 800px;
+      }
+
+      .partner-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        padding: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+        text-align: center;
+      }
+
+      .partner-card:hover {
+        border-color: var(--accent-color);
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .partner-logo {
+        width: 100px;
+        height: 60px;
+        background: #333;
+        border-radius: 8px;
+        margin: 0 auto 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 0.8rem;
+        text-align: center;
+      }
+
+      /* Contact section */
+      .contact-container {
+        max-width: 800px;
+        width: 100%;
+      }
+
+      .contact-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 30px;
+        margin-top: 40px;
+      }
+
+      .contact-card {
+        background: linear-gradient(
+          147deg,
+          var(--card-bg) 0%,
+          var(--card-bg-end) 74%
+        );
+        border-radius: 15px;
+        padding: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: center;
+      }
+
+      .contact-icon {
+        width: 50px;
+        height: 50px;
+        background: var(--accent-color);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+        color: var(--primary-color);
+        font-size: 1.5rem;
+      }
+
+      .contact-card h4 {
+        color: var(--secondary-color);
+        margin-bottom: 15px;
+      }
+
+      .contact-card p,
+      .contact-card a {
+        color: var(--text-color);
+        text-decoration: none;
+        line-height: 1.6;
+      }
+
+      .contact-card a:hover {
+        color: var(--accent-color);
+      }
+
+      .social-links {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 40px;
+      }
+
+      .social-links a {
+        width: 50px;
+        height: 50px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-color);
+        font-size: 1.5rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+      }
+
+      .social-links a:hover {
+        background: var(--accent-color);
+        color: var(--primary-color);
+        transform: translateY(-5px);
+      }
+
+      /* Footer */
+      footer {
+        background: linear-gradient(
+          147deg,
+          var(--card-bg) 0%,
+          var(--card-bg-end) 74%
+        );
+        color: var(--text-color);
+        padding: 30px 20px;
+        text-align: center;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      /* Animations */
+      .fade-in {
+        opacity: 0;
+        transform: translateY(20px);
+        transition:
+          opacity 0.8s ease-out,
+          transform 0.8s ease-out;
+      }
+
+      .fade-in-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .nav-links {
           display: none;
         }
 
-        .menu-btn span {
+        .menu-btn {
+          display: flex;
+        }
+
+        .mobile-nav.active {
           display: block;
-          width: 25px;
-          height: 2px;
-          background: var(--secondary-color);
-           margin: 5px 0;
-          transition: all 0.3s ease;
-        }
-
-        .menu-btn:hover {
-          color: var(--accent-color);
-         }
-
-        .nav-links {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          transition: all 0.3s ease;
-          /* margin-left: 300px; / / Retiré car flexbox gère mieux */
-        }
-
-        .nav-links ul {
-          display: flex;
-          gap: 2rem;
-          list-style: none;
-        }
-
-        .nav-links a {
-          color: black;
-          text-decoration: none;
-          font-size: 1.1rem;
-          transition: color 0.3s ease;
-          display: flex;
-          align-items: center;
-          gap: 0.8rem;
-          font-family: 'Roboto Condensed', sans-serif;
-        }
-
-        .nav-links a:hover {
-          color: var(--accent-color);
-        }
-
-        .login-btn {
-            background: var(--secondary-color);
-            color: var(--primary-color);
-            padding: 8px 15px;
-            border-radius: 5px;
-            font-weight: bold;
-            transition: background 0.3s ease;
-            text-decoration: none !important; /* Pour s'assurer que le lien n'a pas de soulignement */
-        }
-        .login-btn:hover {
-            background: var(--accent-color);
-            color: var(--primary-color);
-        }
-
-        /* Styles pour le dropdown utilisateur */
-        .nav-item-dropdown {
-            position: relative;
-        }
-
-        .dropdown-toggle-custom {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--secondary-color);
-            text-decoration: none;
-            font-weight: bold;
-            padding: 8px 15px;
-            border: 1px solid var(--secondary-color);
-            border-radius: 5px;
-            transition: all 0.3s ease;
-        }
-
-        .dropdown-toggle-custom:hover {
-            background: rgba(5, 226, 255, 0.1);
-            color: var(--accent-color);
-            border-color: var(--accent-color);
-        }
-
-        .dropdown-menu-custom {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background: linear-gradient(147deg, #2e3a59 0%, #1a2b46 74%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 5px;
-            list-style: none;
-            padding: 10px 0;
-            min-width: 200px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(10px);
-            transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
-            z-index: 100;
-        }
-
-        .dropdown-menu-custom.active {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-        }
-
-        .dropdown-menu-custom li a {
-            display: block;
-            padding: 8px 15px;
-            color: var(--text-color);
-            text-decoration: none;
-            transition: background-color 0.3s ease;
-        }
-
-        .dropdown-menu-custom li a:hover {
-            background-color: rgba(255, 255, 255, 0.05);
-            color: var(--accent-color);
-        }
-
-        /* Version mobile */
-        @media (max-width: 768px) {
-          .menu-btn {
-            display: block;
-          }
-
-          .nav-links {
-            position: fixed;
-            top: 0;
-            right: -100%;
-            height: 100vh;
-            width: 70%;
-            background: linear-gradient(147deg,#2e3a59 0%, #1a2b46 74%);
-            flex-direction: column;
-            justify-content: center;
-            transition: right 0.3s ease;
-            padding-top: 4rem;
-            border-left: 1px solid #fdfbfb;
-          }
-
-          .nav-links.active {
-            right: 0;
-          }
-
-          .nav-links ul {
-            flex-direction: column;
-            gap: 2rem;
-            text-align: center;
-          }
-
-          .menu-btn.active span:nth-child(1) {
-            transform: rotate(45deg) translate(5px, 5px);
-          }
-
-          .menu-btn.active span:nth-child(2) {
-            opacity: 0;
-          }
-
-          .menu-btn.active span:nth-child(3) {
-            transform: rotate(-45deg) translate(7px, -6px);
-          }
-
-          .dropdown-menu-custom { /* Ajustement pour mobile si nécessaire */
-            position: static; /* Retire la position absolue */
-            background: none; /* Pas de fond */
-            border: none;
-            box-shadow: none;
-            transform: none;
-            text-align: center;
-            min-width: unset;
-            padding-left: 0; /* retire l'indentation */
-          }
-          .dropdown-menu-custom li a {
-            padding: 5px 0;
-          }
-        }
-
-        /* Sections de contenu */
-        .section {
-          width: 100%;
-          min-height: 100vh; /* Utiliser min-height pour s'adapter au contenu */
-          padding: 50px;
-          background-size: cover;
-          background-position: center;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          text-align: center;
-        }
-
-        .hero-- {
-          color: var(--text-color);
-          margin-top: 80px; /* Ajusté pour laisser de la place à la navbar fixe */
-          padding: 25px;
-          font-family: 'Roboto Condensed', sans-serif;
-          border-bottom: 2px solid #0a0a0a;
-          min-height: calc(100vh - 80px); /* Ajuste la hauteur pour le hero */
-        }
-
-        h1 {
-          font-weight: bolder;
-          font-size: 2.8rem; /* Ajusté pour la lisibilité */
-          margin-bottom: 20px;
-        }
-
-        /* Style sur le comic button */
-        .comic-button {
-          text-decoration: none;
-          color: #818181;
-          margin-top: 50px;
-          border: 2px solid rgb(236, 241, 241);
-          border-radius: 10px;
-          background: linear-gradient(147deg,#2e3a59 0%, #1a2b46 74%);
-          padding: 15px 30px; /* Augmenté pour un bouton plus grand */
-          font-size: 1.1rem;
-          transition: all 0.3s ease;
-        }
-
-        .comic-button:hover {
-          background-color: var(--accent-color);
-          color: var(--primary-color);
-          transform: translateY(-3px);
-          box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        }
-
-        .image-container {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          min-height: 400px;
-          margin-top: 100px; /* Ajustez pour l'espacement après la section précédente */
-          margin-bottom: 50px;
-          padding: 0 20px; /* Ajouté pour un peu de marge sur les côtés */
         }
 
         .about-wrapper {
-            display: flex;
-            flex-wrap: wrap; /* Permet le passage à la ligne sur mobile */
-            gap: 50px;
-            max-width: 1200px; /* Limite la largeur du contenu */
-            align-items: center;
-            justify-content: center;
-        }
-
-        .profile-img {
-          max-width: 400px; /* Taille maximale pour l'image */
-          height: auto;
-          border-radius: 50px;
-          box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+          flex-direction: column;
+          text-align: center;
         }
 
         .about-content {
-            flex: 1; /* Permet au contenu de prendre l'espace restant */
-            min-width: 300px; /* Largeur minimale pour le texte */
-            text-align: left; /* Alignement du texte pour la section à propos */
+          text-align: center;
         }
 
-        .service-image {
-          max-width: 80%; /* Ajusté */
-          height: auto;
-          display: block; /* S'assurer qu'il prend sa propre ligne */
-          margin: 15px auto; /* Centrer l'image */
-          min-height: 80px;
-          border-radius: 15px;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        .services-container {
+          padding: 30px 20px;
         }
 
-        h3 {
-          color: var(--secondary-color);
-          font-family: 'Roboto Condensed', sans-serif;
-          margin-top: 50px;
-          margin-bottom: 40px;
-          font-size: 2.2rem;
-        }  
+        .services-grid {
+          grid-template-columns: 1fr;
+        }
 
-        p { 
-          color: var(--text-color);
-          font-family: 'Roboto Condensed', sans-serif;
+        .section {
+          padding: 60px 1rem 30px;
+        }
+
+        .hero h1 {
+          font-size: 2rem;
+        }
+
+        .hero p {
           font-size: 1.1rem;
-          line-height: 1.8;
         }
-        h4 {
-          color: var(--text-color);
-          font-family: 'Roboto Condensed', sans-serif;
-          font-size: 1.3rem;
+      }
+
+      @media (max-width: 480px) {
+        .navbar {
+          padding: 1rem;
         }
 
-        .highlight {
-          font-size: inherit; /* Pour ne pas changer la taille, juste la couleur */
-          font-weight: bolder;
-          color: var(--accent-color); /* Couleur pour le texte mis en avant */
+        .hero h1 {
+          font-size: 1.8rem;
         }
 
-        main {
-          background: #0a090e;
-          padding: 15px;
-          margin-top: 0; /* Pas de marge ici, les sections gèrent leur espacement */
+        .comic-button {
+          padding: 12px 24px;
+          font-size: 1rem;
         }
 
-        /* Section Compétences (sera utilisée pour les partenaires) */
-        .content-section {
-            padding: 4rem 1rem;
-            max-width: 1000px;
-            margin: 0 auto;
-            text-align: center;
+        .services-container {
+          padding: 20px 15px;
         }
-
-        .partners-grid {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 30px;
-            margin-top: 40px;
-        }
-
-        .partner-logo {
-            max-width: 150px;
-            height: auto;
-            filter: grayscale(100%);
-            opacity: 0.7;
-            transition: all 0.3s ease;
-        }
-
-        .partner-logo:hover {
-            filter: grayscale(0%);
-            opacity: 1;
-        }
-        
-        /* Section Services spécifique */
-        .task-liste {
-          color: var(--text-color);
-          font-family: 'Roboto Condensed', sans-serif;
-          padding: 20px;
-          text-align: left; /* Alignement du texte pour les descriptions de service */
-        }
-        .task-liste ul {
-            list-style: none; /* Pas de puces pour les titres de service */
-            margin-top: 20px;
-            margin-bottom: 10px;
-        }
-        .task-liste ul li {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--accent-color);
-            margin-bottom: 5px;
-        }
-
-
-        /* Section Contact (simplifiée) */
-        .contact-section {
-          max-width: 600px;
-          margin: 0 auto;
-          color: var(--text-color);
-          font-family: 'Roboto Condensed', sans-serif;
-        }
-
-        .contact-info {
-            margin-top: 2rem;
-            padding: 1.5rem;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            text-align: left; /* Alignement du texte des infos contact */
-        }
-        .contact-info p {
-            font-size: 1.1rem;
-            margin-bottom: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .contact-info p i {
-            color: var(--secondary-color);
-            font-size: 1.3rem;
-        }
-        .contact-info ul {
-            list-style: none;
-            padding-left: 30px; /* Indentation pour les listes */
-            margin-bottom: 1.5rem;
-        }
-        .contact-info ul li {
-            margin-bottom: 5px;
-            font-size: 1rem;
-        }
-        .contact-info ul li a {
-            color: var(--accent-color);
-            text-decoration: none;
-        }
-        .contact-info ul li a:hover {
-            text-decoration: underline;
-        }
-
-
-        .social-links {
-          display: flex;
-          justify-content: center;
-          gap: 20px; /* Augmenté pour un meilleur espacement */
-          margin: 40px 0; /* Marge supérieure et inférieure */
-          color: #eaebf1;
-        }
-
-        .social-links a {
-          color: var(--text-color); /* Couleur des icônes */
-          font-size: 1.8rem; /* Taille des icônes */
-          transition: color 0.3s ease, transform 0.3s ease;
-          text-decoration: none; /* Pas de soulignement */
-        }
-
-        .social-links a:hover {
-          color: var(--accent-color);
-          transform: translateY(-5px); /* Effet au survol */
-        }
-
-        /* Responsive Design */
-        @media (max-width: 992px) {
-            .about-wrapper {
-                flex-direction: column;
-                text-align: center;
-            }
-            .profile-img {
-                max-width: 80%; /* Plus grande sur les petits écrans */
-            }
-            .about-content {
-                min-width: unset; /* Retire la contrainte de largeur */
-                text-align: center;
-            }
-            h1 {
-                font-size: 2.2rem;
-            }
-            .section {
-                padding: 30px 15px;
-            }
-            .scroll-list-wrap {
-                padding: 30px 15px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            h1 {
-                font-size: 1.8rem;
-            }
-            p {
-                font-size: 1rem;
-            }
-            .comic-button {
-                padding: 10px 20px;
-                font-size: 1rem;
-            }
-            .service-image {
-                max-width: 95%;
-            }
-            .task-liste ul li {
-                font-size: 1.3rem;
-            }
-        }
-
-        /* Animations */
-        .fade-in {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
-        }
-
-        .fade-in-visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* Footer */
-        footer {
-            background: linear-gradient(147deg,#2e3a59 0%, #1a2b46 74%);
-            color: var(--text-color);
-            padding: 30px 20px;
-            text-align: center;
-            font-size: 0.9rem;
-            border-top: 1px solid #f7f2f2;
-        }
-        footer .icone {
-            font-size: 1.2em;
-            vertical-align: middle;
-        }
-        /* Fin du CSS incorporé */
+      }
     </style>
-{% endblock head %}
+  </head>
+  <body>
+    <header class="navbar">
+      <div class="nav-container">
+        <a href="{% url 'home' %}" class="navbar-brand">
+          <div class="brand-logo">S</div>
+          SYBEMAcademia
+        </a>
 
-{% block content %}
-    <header> 
-        {# Bouton menu hamburger pour mobile #}
-        <div class="menu-btn" onclick="toggleMenu()">
-            <span></span>
-            <span></span>
-            <span></span>
-        </div> 
-        
-        <div class="navbar">
-            <a href="{% url 'home' %}" class="navbar-brand-custom">
-                <img src="" alt="" class="">
-                SYBEMAcademia
-            </a>
-            <nav class="nav-links">
-                <ul>
-                    <li><a href="#home-section">Accueil</a></li>
-                    <li><a href="#about-section">À Propos</a></li>
-                    <li><a href="#services-section">Services</a></li>
-                    <li><a href="#partners-section">Partenaires</a></li>
-                    <li><a href="#contact-section">Contact</a></li>
-                    
-                    {% if not user.is_authenticated %}
-                        <li class="nav-item-login"><a href="{% url 'login' %}" class="login-btn">Se connecter</a></li>
-                    {% else %}
-                        <li class="nav-item-dropdown">
-                            <a href="#" class="dropdown-toggle-custom" onclick="event.preventDefault(); toggleDropdown(this);">
-                                <i class="fas fa-user-circle"></i> {{ user.username }}
-                            </a>
-                            <ul class="dropdown-menu-custom">
-                                {% if user.user_type == 'PARENT' %}
-                                    <li><a href="{% url 'parent_dashboard' %}">Mon Espace Parent</a></li>
-                                {% elif user.user_type == 'TEACHER' %}
-                                    <li><a href="{% url 'profiles:teacher_dashboard' %}">Mon Espace Enseignant</a></li>
-                                {% elif user.user_type == 'DIRECTION' or user.user_type == 'ADMIN' %}
-                                    <li><a href="{% url 'direction_dashboard' %}">Tableau de Bord Direction</a></li>
-                                {% elif user.user_type == 'ACCOUNTANT' %}
-                                    <li><a href="{% url 'accounting_dashboard' %}">Tableau de Bord Comptabilité</a></li>
-                                {% endif %}
-                                <li><a href="{% url 'profiles:logout' %}">Déconnexion</a></li>
-                            </ul>
-                        </li>
-                    {% endif %}
-                </ul>
-            </nav>
-        </div>
+        <nav class="nav-links">
+          <ul>
+            <li><a href="#home">Accueil</a></li>
+            <li><a href="#about">À Propos</a></li>
+            <li><a href="#services">Services</a></li>
+            <li><a href="#partners">Partenaires</a></li>
+            <li><a href="#contact">Contact</a></li>
+          </ul>
+          <a href="{% url 'login' %}" class="login-btn">Se connecter</a>
+        </nav>
+
+        <button class="menu-btn" onclick="toggleMenu()">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <div class="mobile-nav" id="mobileNav">
+        <ul>
+          <li><a href="#home" onclick="closeMenu()">Accueil</a></li>
+          <li><a href="#about" onclick="closeMenu()">À Propos</a></li>
+          <li><a href="#services" onclick="closeMenu()">Services</a></li>
+          <li><a href="#partners" onclick="closeMenu()">Partenaires</a></li>
+          <li><a href="#contact" onclick="closeMenu()">Contact</a></li>
+          <li>
+            <a href="{% url 'login' %}" class="login-btn" onclick="closeMenu()"
+              >Se connecter</a
+            >
+          </li>
+        </ul>
+      </div>
     </header>
-    <main>
-        <section id="home-section" class="hero-- section fade-in">
-            <h1>Simplifiez et innovez l'éducation avec SYBEMAcademia !</h1><br>
-            <p>Une plateforme moderne et intuitive pour la gestion scolaire.</p> 
-            <br>
-            <a href="" class="comic-button">Démarrer Gratuitement</a>
-        </section>
 
-        <section id="about-section" class="image-container section fade-in">
-            <div class="about-wrapper">
-                <img src="" alt="À Propos de SYBEMAcademia" loading="lazy" class="profile-img">
-                <div class="about-content">
-                    <h3>À Propos de SYBEMAcademia</h3>
-                    <p>SYBEMAcademia est une solution complète dédiée à la <span class="highlight">gestion scolaire innovante</span>.
-                    Nous transformons l'expérience éducative grâce à des outils puissants pour les <span class="highlight">enseignants, les parents et l'administration</span>.
-                    Notre plateforme est conçue pour <span class="highlight">simplifier les tâches, améliorer la communication et optimiser le suivi des élèves</span>.
-                    </p>
-                    <p>
-                    Nous nous engageons à offrir une technologie avancée, mettant l'accent sur la <span class="highlight">qualité, l'imagination et la créativité</span>.
-                    Avec SYBEMAcademia, l'efficacité administrative rencontre l'excellence pédagogique pour un environnement d'apprentissage enrichi.
-                    </p>
-                </div>
+    <section id="home" class="section hero fade-in">
+      <h1>
+        Simplifiez et innovez l'éducation avec
+        <span class="highlight">SYBEMAcademia</span> !
+      </h1>
+      <p>Une plateforme moderne et intuitive pour la gestion scolaire.</p>
+      <a href="#about" class="comic-button">Démarrer Gratuitement</a>
+    </section>
+
+    <section id="about" class="section fade-in">
+      <div class="about-wrapper">
+        <div class="profile-img">
+          <div
+            class="brand-logo"
+            style="
+              width: 80px;
+              height: 80px;
+              font-size: 2rem;
+              margin-bottom: 20px;
+            "
+          >
+            S
+          </div>
+          <h4 style="color: var(--accent-color); margin-bottom: 10px">
+            SYBEMAcademia
+          </h4>
+          <p style="color: var(--text-color); font-size: 0.9rem">
+            Innovation Éducative
+          </p>
+        </div>
+
+        <div class="about-content">
+          <h3>À Propos de SYBEMAcademia</h3>
+          <p>
+            SYBEMAcademia est une solution complète dédiée à la
+            <span class="highlight">gestion scolaire innovante</span>. Nous
+            transformons l'expérience éducative grâce à des outils puissants
+            pour les
+            <span class="highlight"
+              >enseignants, les parents et l'administration</span
+            >.
+          </p>
+
+          <p>
+            Notre plateforme est conçue pour
+            <span class="highlight"
+              >simplifier les tâches, améliorer la communication et optimiser le
+              suivi des élèves</span
+            >.
+          </p>
+
+          <p>
+            Nous nous engageons à offrir une technologie avancée, mettant
+            l'accent sur la
+            <span class="highlight"
+              >qualité, l'imagination et la créativité</span
+            >. Avec SYBEMAcademia, l'efficacité administrative rencontre
+            l'excellence pédagogique pour un environnement d'apprentissage
+            enrichi.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="services" class="section fade-in">
+      <div class="services-container">
+        <h3
+          style="
+            color: var(--secondary-color);
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+          "
+        >
+          Nos Services
+        </h3>
+        <p
+          style="
+            color: var(--text-color);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+          "
+        >
+          Découvrez notre gamme complète de services conçus pour révolutionner
+          la gestion éducative.
+        </p>
+
+        <div class="services-grid">
+          <div class="service-card">
+            <div class="service-icon">
+              <i class="fas fa-graduation-cap"></i>
             </div>
-        </section>
+            <h4>Gestion des Notes & Évaluations</h4>
+            <p>
+              Saisie facile des notes, calcul automatique des moyennes, et suivi
+              détaillé des performances des élèves.
+            </p>
+          </div>
 
-        <section id="services-section" class="scroll-list-wrap section fade-in">
-            <div class="task-liste">
-                <h3>Nos Services</h3>
-                
-                {# Nouvelle organisation des services #}
-                <ul>
-                    <li>Gestion des Notes & Évaluations</li>
-                </ul><br>
-                <img src="" alt="" class=""><br>
-                Saisie facile des notes, calcul automatique des moyennes, et suivi détaillé des performances des élèves.
-                
-                <ul><Br>
-                    <li>Suivi des Absences & Présences</li>
-                </ul><br>
-                <img src="" alt="" class=""><br>
-                Enregistrement rapide des présences, alertes en cas d'absence et rapports d'assiduité.
-                
-                <ul><Br>
-                    <li>Historique Disciplinaire</li>
-                </ul><br>
-                <img src="" alt="" class=""><br>
-                Suivi détaillé des comportements des élèves, enregistrement des incidents et des sanctions.
+          <div class="service-card">
+            <div class="service-icon"><i class="fas fa-user-check"></i></div>
+            <h4>Suivi des Absences & Présences</h4>
+            <p>
+              Enregistrement rapide des présences, alertes en cas d'absence et
+              rapports d'assiduité.
+            </p>
+          </div>
 
-                <ul><Br>
-                    <li>Gestion des Devoirs & Tâches</li>
-                </ul><br>
-                <img src="" alt="" class=""><br>
-                Assignation et suivi des devoirs, soumissions en ligne et évaluation facile par les enseignants.
-
-                <ul><Br>
-                    <li>Génération Automatique de Bulletins</li>
-                </ul><br>
-                <img src="" alt="" class=""><br>
-                Création rapide et automatisée de bulletins scolaires personnalisables.
-
-                <ul><Br>
-                    <li>Envoi et Partage de Documents</li>
-                </ul><br>
-                <img src="" alt="" class=""><br>
-                Plateforme sécurisée pour le partage de cours, circulaires et autres documents importants.
-
-                <ul><Br>
-                    <li>Archivage Sécurisé de Documents Scolaires</li>
-                </ul><br>
-                <img src="" alt="" class=""><br>
-                Conservation numérique et sécurisée des dossiers d'élèves, diplômes et autres archives importantes.
-                
-                <ul><Br>
-                    <li>Communication Enseignant-Parent</li>
-                </ul><br>
-                <img src="" alt="" class=""><br>
-                Plateforme de messagerie intégrée pour une communication fluide et transparente.
-
-                <ul><Br>
-                    <li>Gestion des Cours & Matières</li>
-                </ul><br>
-                <img src="" alt="" class=""><br>
-                Organisation et planification des cours, assignation des enseignants et des élèves.
-
-                <ul><Br>
-                    <li>Module de Comptabilité</li>
-                </ul><br>
-                <img src="" alt="" class=""><br>
-                Gestion des frais de scolarité, paiements, et rapports financiers pour l'administration.
-
-                <ul><Br>
-                    <li>Reporting & Statistiques</li>
-                </ul><br>
-                <img src="" alt="" class=""><br>
-                Tableaux de bord interactifs et rapports personnalisables pour une meilleure prise de décision.
+          <div class="service-card">
+            <div class="service-icon">
+              <i class="fas fa-exclamation-triangle"></i>
             </div>
-        </section>
+            <h4>Historique Disciplinaire</h4>
+            <p>
+              Suivi détaillé des comportements des élèves, enregistrement des
+              incidents et des sanctions.
+            </p>
+          </div>
 
-        <section id="partners-section" class="content-section section fade-in">
-            <h3>Nos Partenaires</h3>
-            <p>Nous sommes fiers de collaborer avec des organisations qui partagent notre vision pour l'avenir de l'éducation.</p>
-            <div class="partners-grid">
-                <img src="" alt="" class="">
-                <img src="" alt="" class="">
-                <img src="" alt="" class="">
-                <img src="" alt="" class="">
-            </div>
-        </section>
+          <div class="service-card">
+            <div class="service-icon"><i class="fas fa-book-open"></i></div>
+            <h4>Gestion des Devoirs & Tâches</h4>
+            <p>
+              Assignation et suivi des devoirs, soumissions en ligne et
+              évaluation facile par les enseignants.
+            </p>
+          </div>
 
-        <section id="contact-section" class="content-section contact-section section fade-in">
-            <h3>Contactez-nous</h3>
-            <p>Pour toute question ou collaboration, n'hésitez pas à nous contacter :</p>
-            <div class="contact-inf o">
-                <p><i class="fas fa-phone-alt"></i> Téléphones :</p>
-                <ul>
-                    <li>+2978253665</li>
-                    <li>+243 850 008 795</li>
-                </ul>
-                <p><i class="fas fa-envelope"></i> Email :</p>
-                <ul>
-                    <li><a href="mailto:fortunem.kif@gmail.com">fortunem.kif@gmail.com</a></li>
-                </ul>
-                <p><i class="fas fa-map-marker-alt"></i> Adresse : </p>
-                <ul>
-                    <li>Goma, République Démocratique du Congo</li>
-                </ul>
-            </div>
+          <div class="service-card">
+            <div class="service-icon"><i class="fas fa-file-alt"></i></div>
+            <h4>Génération Automatique de Bulletins</h4>
+            <p>
+              Création rapide et automatisée de bulletins scolaires
+              personnalisables.
+            </p>
+          </div>
 
-            <div class="social-links">
-                <a href="" target="_blank" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
-                <a href="" target="_blank" aria-label="Twitter"><i class="fab fa-x-twitter"></i></a>
-                <a href="" target="_blank" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
-                <a href="" target="_blank" aria-label="GitHub"><i class="fab fa-github"></i></a>
+          <div class="service-card">
+            <div class="service-icon"><i class="fas fa-share-alt"></i></div>
+            <h4>Envoi et Partage de Documents</h4>
+            <p>
+              Plateforme sécurisée pour le partage de cours, circulaires et
+              autres documents importants.
+            </p>
+          </div>
+
+          <div class="service-card">
+            <div class="service-icon"><i class="fas fa-archive"></i></div>
+            <h4>Archivage Sécurisé</h4>
+            <p>
+              Conservation numérique et sécurisée des dossiers d'élèves,
+              diplômes et autres archives importantes.
+            </p>
+          </div>
+
+          <div class="service-card">
+            <div class="service-icon"><i class="fas fa-comments"></i></div>
+            <h4>Communication Enseignant-Parent</h4>
+            <p>
+              Plateforme de messagerie intégrée pour une communication fluide et
+              transparente.
+            </p>
+          </div>
+
+          <div class="service-card">
+            <div class="service-icon"><i class="fas fa-calendar-alt"></i></div>
+            <h4>Gestion des Cours & Matières</h4>
+            <p>
+              Organisation et planification des cours, assignation des
+              enseignants et des élèves.
+            </p>
+          </div>
+
+          <div class="service-card">
+            <div class="service-icon"><i class="fas fa-calculator"></i></div>
+            <h4>Module de Comptabilité</h4>
+            <p>
+              Gestion des frais de scolarité, paiements, et rapports financiers
+              pour l'administration.
+            </p>
+          </div>
+
+          <div class="service-card">
+            <div class="service-icon"><i class="fas fa-chart-bar"></i></div>
+            <h4>Reporting & Statistiques</h4>
+            <p>
+              Tableaux de bord interactifs et rapports personnalisables pour une
+              meilleure prise de décision.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="partners" class="section fade-in">
+      <h3
+        style="
+          color: var(--secondary-color);
+          font-size: 2.5rem;
+          margin-bottom: 20px;
+        "
+      >
+        Nos Partenaires
+      </h3>
+      <p
+        style="
+          color: var(--text-color);
+          font-size: 1.1rem;
+          max-width: 600px;
+          margin-bottom: 40px;
+        "
+      >
+        Nous sommes fiers de collaborer avec des organisations qui partagent
+        notre vision pour l'avenir de l'éducation.
+      </p>
+
+      <div class="partners-grid">
+        <div class="partner-card">
+          <div class="partner-logo"><br /></div>
+          <p style="color: var(--text-color); font-size: 0.9rem">
+            
+          </p>
+        </div>
+        <div class="partner-card">
+          <div class="partner-logo"></div>
+          <p style="color: var(--text-color); font-size: 0.9rem"></p>
+        </div>
+        <div class="partner-card">
+          <div class="partner-logo"></div>
+          <p style="color: var(--text-color); font-size: 0.9rem">
+            
+          </p>
+        </div>
+        <div class="partner-card">
+          <div class="partner-logo"><br /></div>
+          <p style="color: var(--text-color); font-size: 0.9rem">
+            
+          </p>
+        </div>
+        <div class="partner-card">
+          <div class="partner-logo"><br /></div>
+          <p style="color: var(--text-color); font-size: 0.9rem">
+            
+          </p>
+        </div>
+        <div class="partner-card">
+          <div class="partner-logo"><br /></div>
+          <p style="color: var(--text-color); font-size: 0.9rem">
+            
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" class="section fade-in">
+      <div class="contact-container">
+        <h3
+          style="
+            color: var(--secondary-color);
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+          "
+        >
+          Contactez-nous
+        </h3>
+        <p
+          style="
+            color: var(--text-color);
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+          "
+        >
+          Pour toute question ou collaboration, n'hésitez pas à nous contacter :
+        </p>
+
+        <div class="contact-grid">
+          <div class="contact-card">
+            <div class="contact-icon"><i class="fas fa-phone"></i></div>
+            <h4>Téléphones</h4>
+            <p>+243978253665</p>
+            <p>+243 850 008 795</p>
+          </div>
+
+          <div class="contact-card">
+            <div class="contact-icon"><i class="fas fa-envelope"></i></div>
+            <h4>Email</h4>
+            <a href="mailto:fortunem.kif@gmail.com">fortunem.kif@gmail.com</a>
+          </div>
+
+          <div class="contact-card">
+            <div class="contact-icon">
+              <i class="fas fa-map-marker-alt"></i>
             </div>
-        </section>
-    </main>
+            <h4>Adresse</h4>
+            <p>Goma, République Démocratique du Congo</p>
+          </div>
+        </div>
+
+        <div class="social-links">
+          <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
+          <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+          <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
+          <a href="#" aria-label="GitHub"><i class="fab fa-github"></i></a>
+        </div>
+      </div>
+    </section>
 
     <footer>
-        <p>&copy; {% now "Y" %} SYBEMAcademia <span class="icone">🚀</span> - Tous droits réservés</p>
+      <p>
+        &copy; 2024 SYBEMAcademia
+        <i class="fas fa-rocket" style="color: var(--accent-color)"></i> - Tous
+        droits réservés
+      </p>
     </footer>
 
-{% endblock content %}
-
-{% block extra_js %}
     <script>
-        // Début du JavaScript incorporé
-        // Toggle Menu pour mobile
-        function toggleMenu() {
-            const menuBtn = document.querySelector('.menu-btn');
-            const navLinks = document.querySelector('.nav-links');
-            
-            menuBtn.classList.toggle('active');
-            navLinks.classList.toggle('active');
-            
-            if(navLinks.classList.contains('active')) {
-                document.addEventListener('click', closeMenuOnClickOutside);
-            } else {
-                document.removeEventListener('click', closeMenuOnClickOutside);
-            }
-        }
+      // Menu mobile
+      function toggleMenu() {
+        const mobileNav = document.getElementById("mobileNav");
+        const menuBtn = document.querySelector(".menu-btn");
 
-        function closeMenuOnClickOutside(e) {
-            const menuBtn = document.querySelector('.menu-btn');
-            const navLinks = document.querySelector('.nav-links');
-            
-            if(!navLinks.contains(e.target) && !menuBtn.contains(e.target) && window.innerWidth <= 768) {
-                toggleMenu();
-            }
-        }
+        mobileNav.classList.toggle("active");
+        menuBtn.classList.toggle("active");
+      }
 
-        // Dropdown pour l'utilisateur connecté (pour les rôles)
-        function toggleDropdown(element) {
-            const dropdownMenu = element.nextElementSibling; // Cible le ul.dropdown-menu-custom
-            dropdownMenu.classList.toggle('active'); // Ajoute/retire la classe 'active'
-        }
+      function closeMenu() {
+        const mobileNav = document.getElementById("mobileNav");
+        const menuBtn = document.querySelector(".menu-btn");
 
-        // Fermer le dropdown si on clique à l'extérieur
-        document.addEventListener('click', function(event) {
-            const dropdownToggles = document.querySelectorAll('.dropdown-toggle-custom');
-            dropdownToggles.forEach(toggle => {
-                const dropdownMenu = toggle.nextElementSibling;
-                if (dropdownMenu && !toggle.contains(event.target) && !dropdownMenu.contains(event.target)) {
-                    dropdownMenu.classList.remove('active');
-                }
-            });
+        mobileNav.classList.remove("active");
+        menuBtn.classList.remove("active");
+      }
+
+      // Animations au scroll
+      const observerOptions = {
+        threshold: 0.1,
+        rootMargin: "0px 0px -50px 0px",
+      };
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("fade-in-visible");
+          }
         });
+      }, observerOptions);
 
-        // Smooth scrolling pour les liens de navigation
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function(e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) { // S'assurer que la cible existe
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-                
-                // Fermer le menu mobile après clic
-                if(window.innerWidth <= 768) {
-                    const navLinks = document.querySelector('.nav-links');
-                    if (navLinks.classList.contains('active')) {
-                        toggleMenu();
-                    }
-                }
+      // Observer toutes les sections
+      document.querySelectorAll(".fade-in").forEach((section) => {
+        observer.observe(section);
+      });
+
+      // Smooth scroll pour les liens de navigation
+      document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+        anchor.addEventListener("click", function (e) {
+          e.preventDefault();
+          const target = document.querySelector(this.getAttribute("href"));
+          if (target) {
+            target.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
             });
+          }
+          // Fermer le menu mobile si ouvert
+          closeMenu();
         });
+      });
 
-        // Observateur d'intersection pour les animations de section (fade-in)
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if(entry.isIntersecting) {
-                    entry.target.classList.add('fade-in-visible');
-                } else {
-                    // Optionnel: pour que l'animation se rejoue en scrollant de haut en bas
-                    // entry.target.classList.remove('fade-in-visible');
-                }
-            });
-        }, { threshold: 0.1 }); // Se déclenche quand 10% de l'élément est visible
+      // Fermer le menu mobile en cliquant à l'extérieur
+      document.addEventListener("click", function (e) {
+        const mobileNav = document.getElementById("mobileNav");
+        const menuBtn = document.querySelector(".menu-btn");
+        const navContainer = document.querySelector(".nav-container");
 
-        document.querySelectorAll('.section').forEach((section) => {
-            section.classList.add('fade-in'); // Ajoute la classe initiale pour l'animation
-            observer.observe(section);
+        if (
+          !navContainer.contains(e.target) &&
+          mobileNav.classList.contains("active")
+        ) {
+          closeMenu();
+        }
+      });
+
+      // Animation de rotation pour le menu hamburger
+      document
+        .querySelector(".menu-btn")
+        .addEventListener("click", function () {
+          const spans = this.querySelectorAll("span");
+          if (this.classList.contains("active")) {
+            spans[0].style.transform = "rotate(45deg) translate(5px, 5px)";
+            spans[1].style.opacity = "0";
+            spans[2].style.transform = "rotate(-45deg) translate(7px, -6px)";
+          } else {
+            spans[0].style.transform = "none";
+            spans[1].style.opacity = "1";
+            spans[2].style.transform = "none";
+          }
         });
-        // Fin du JavaScript incorporé
     </script>
-{% endblock extra_js %}
+  </body>
+</html>
