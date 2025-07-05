@@ -1,6 +1,6 @@
 # school/utils/charts.py
 
-import matplotlib.pyplot as plt
+i#mport matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 import seaborn as sns

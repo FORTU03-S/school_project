@@ -1,8 +1,8 @@
 # profiles/views.py
 from django.db import models, IntegrityError
-from .chart_generator import ChartGenerator
+#from .chart_generator import ChartGenerator
 from datetime import datetime
-from profiles.chart_generator import ChartGenerator
+#from profiles.chart_generator import ChartGenerator
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout, authenticate, get_user_model
