@@ -1,0 +1,132 @@
+{# school_project/profiles/templates/profiles/teacher_message.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">{{ title }}</h2>
+
+    {% if messages %}
+        <div class="messages mt-3">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-chalkboard-teacher me-2"></i> Choisir un Cours</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{% url 'profiles:send_message' %}" class="row g-3 align-items-center">
+                <div class="col-md-9">
+                    <label for="course_select" class="form-label visually-hidden">Cours</label>
+                    <select class="form-select" id="course_select" name="course_id" onchange="this.form.submit()">
+                        <option value="">-- Sélectionner un cours --</option>
+                        {% for course in teacher_courses %}
+                            <option value="{{ course.id }}" {% if course.id == selected_course_id %}selected{% endif %}>{{ course.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100 d-none">Charger le cours</button> {# Bouton caché car on soumet via JS #}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if selected_course %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-envelope me-2"></i> Envoyer un Message pour le cours : {{ selected_course.name }}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {# Champ caché pour le cours selectionné #}
+                    {{ form.course }}
+
+                    <div class="mb-3">
+                        <label for="{{ form.subject.id_for_label }}" class="form-label">{{ form.subject.label }}</label>
+                        {{ form.subject }}
+                        {% if form.subject.errors %}<div class="text-danger small">{{ form.subject.errors }}</div>{% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.message_body.id_for_label }}" class="form-label">{{ form.message_body.label }}</label>
+                        {{ form.message_body }}
+                        {% if form.message_body.errors %}<div class="text-danger small">{{ form.message_body.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        {{ form.send_to_all_in_course }}
+                        <label class="form-check-label" for="{{ form.send_to_all_in_course.id_for_label }}">
+                            {{ form.send_to_all_in_course.label }}
+                        </label>
+                    </div>
+
+                    <div id="recipients-selection" class="mb-3">
+                        <label class="form-label">{{ form.recipients.label }}</label>
+                        <div class="border p-3 rounded" style="max-height: 200px; overflow-y: auto;">
+                            {% for choice in form.recipients %}
+                                <div class="form-check">
+                                    {{ choice.tag }}
+                                    <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                        {{ choice.choice_label }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        {% if form.recipients.errors %}<div class="text-danger small">{{ form.recipients.errors }}</div>{% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-end mt-4">
+                        <button type="submit" class="btn btn-success btn-lg me-2"><i class="fas fa-paper-plane me-2"></i> Envoyer le Message</button>
+                        <a href="{% url 'profiles:teacher_dashboard' %}" class="btn btn-secondary btn-lg">Annuler</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center mt-3" role="alert">
+            <i class="fas fa-info-circle me-2"></i> Veuillez sélectionner un cours pour envoyer un message aux parents de ses élèves.
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sendToAllCheckbox = document.getElementById('{{ form.send_to_all_in_course.id_for_label }}');
+        const recipientsSelectionDiv = document.getElementById('recipients-selection');
+        const recipientsCheckboxes = recipientsSelectionDiv.querySelectorAll('input[type="checkbox"]');
+
+        function toggleRecipientsSelection() {
+            if (sendToAllCheckbox.checked) {
+                recipientsSelectionDiv.style.display = 'none';
+                recipientsCheckboxes.forEach(checkbox => checkbox.disabled = true);
+            } else {
+                recipientsSelectionDiv.style.display = 'block';
+                recipientsCheckboxes.forEach(checkbox => checkbox.disabled = false);
+            }
+        }
+
+        // Initial state
+        toggleRecipientsSelection();
+
+        // Listen for changes
+        sendToAllCheckbox.addEventListener('change', toggleRecipientsSelection);
+
+        // Apply Bootstrap form-control class to input/textarea fields
+        document.querySelectorAll('input[type="text"], textarea').forEach(function(el) {
+            el.classList.add('form-control');
+        });
+    });
+</script>
+{% endblock %}

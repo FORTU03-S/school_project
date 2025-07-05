@@ -42,6 +42,8 @@ urlpatterns = [
     path('dashboard-charts/', views.dashboard_charts_view, name='dashboard_charts'),
     # FONCTIONNALITÉS ENSEIGNANT
     path('teacher/students/', views.teacher_list_students_view, name='teacher_list_students_view'),
+    path('teacher/enrollments/', views.teacher_manage_student_enrollments, name='teacher_manage_student_enrollments'),
+    path('teacher/enrollments/add/', views.teacher_add_enrollment, name='teacher_add_enrollment'),
     path('teacher/class/<int:class_id>/manage-students/', views.teacher_add_remove_students_to_class, name='teacher_add_remove_students_to_class'),
     path('teacher/attendance/', views.teacher_attendance_view, name='teacher_attendance_view'),
     path('teacher/evaluations/', views.teacher_manage_evaluations, name='teacher_manage_evaluations'),
@@ -77,6 +79,7 @@ urlpatterns = [
     # Nettoyage des URLs de notification qui posaient conflit
     # La page d'entrée générale pour l'envoi de notifications (choix du type de destinataire)
     path('send-notification/', views.direction_send_notification_view, name='direction_send_notification'),
+    path('teacher/report_cards/', views.teacher_generate_report_card, name='teacher_generate_report_card'),
 
     # Envoyer un message à un parent spécifique (via l'ID de l'élève pour trouver le parent)
     path('send-notification/to-parent/<int:student_id>/', views.direction_send_message_to_single_parent, name='direction_send_message_to_single_parent'),

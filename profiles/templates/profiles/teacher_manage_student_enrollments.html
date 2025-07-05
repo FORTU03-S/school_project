@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">{{ title }}</h2>
+    <p class="lead">Gérez les inscriptions des élèves aux cours pour votre école.</p>
+
+    {% if messages %}
+        <div class="messages mt-3">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="d-flex justify-content-end mb-3">
+        <a href="{% url 'profiles:teacher_add_enrollment' %}" class="btn btn-primary">Inscrire un élève à un cours</a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Élève</th>
+                    <th>Cours</th>
+                    <th>Période Académique</th>
+                    <th>Statut</th>
+                    <th>Date d'Inscription</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for enrollment in enrollments %}
+                <tr>
+                    <td>{{ enrollment.student.full_name }}</td>
+                    <td>{{ enrollment.course.name }} ({{ enrollment.course.classe.name }})</td>
+                    <td>{{ enrollment.academic_period.name }}</td>
+                    <td>{{ enrollment.get_status_display }}</td>
+                    <td>{{ enrollment.enrollment_date|date:"d/m/Y" }}</td>
+                    <td>
+                        {# Ajoutez ici des liens d'édition/suppression si nécessaire #}
+                        {# <a href="{% url 'profiles:teacher_edit_enrollment' enrollment.id %}" class="btn btn-sm btn-warning">Modifier</a> #}
+                        {# <a href="{% url 'profiles:teacher_delete_enrollment' enrollment.id %}" class="btn btn-sm btn-danger">Supprimer</a> #}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center">Aucune inscription gérée par vous pour le moment.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

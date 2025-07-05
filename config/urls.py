@@ -9,8 +9,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('profiles/', include('profiles.urls', namespace='profiles')), # <-- Vérifiez cette ligne
     # ... autres include d'applications ...
-    path('', include('profiles.urls', namespace='profiles'))
-
+    path('', include('profiles.urls', namespace='profiles')),
+    path('login/', profiles_views.login_view, name='login'),  # Authentification
+    path('profiles_home/', profiles_views.home_view, name='home'),  # Page d'accueil
 ]
 
 

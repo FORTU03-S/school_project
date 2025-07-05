@@ -1,0 +1,138 @@
+{# school_project/profiles/templates/profiles/teacher_generate_report_card.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">{{ title }}</h2>
+
+    {% if messages %}
+        <div class="messages mt-3">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Sélectionner Classe et Période</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{% url 'profiles:teacher_generate_report_card' %}" class="row g-3 align-items-center">
+                <div class="col-md-5">
+                    <label for="class_select" class="form-label visually-hidden">Classe</label>
+                    <select class="form-select" id="class_select" name="class_id">
+                        <option value="">-- Choisir une classe --</option>
+                        {% for class in teacher_classes %}
+                            <option value="{{ class.id }}" {% if class.id == selected_class_id %}selected{% endif %}>{{ class.name }} ({{ class.level }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label for="period_select" class="form-label visually-hidden">Période Académique</label>
+                    <select class="form-select" id="period_select" name="period_id">
+                        <option value="">-- Choisir une période --</option>
+                        {% for period in academic_periods %}
+                            <option value="{{ period.id }}" {% if period.id == selected_period_id %}selected{% endif %}>{{ period.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Générer le Bulletin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if students_with_grades %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Bulletins de la Classe {{ selected_class.name }} ({{ selected_period.name }})</h5>
+            </div>
+            <div class="card-body">
+                {% for student_info in students_with_grades %}
+                    <div class="mb-5 p-3 border rounded shadow-sm bg-light">
+                        <h4 class="text-primary">{{ student_info.student.full_name }}</h4>
+                        <p class="text-muted">ID Élève : {{ student_info.student.id }}</p>
+
+                        <div class="table-responsive mt-3">
+                            <table class="table table-bordered table-striped table-sm">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Cours</th>
+                                        <th>Notes (Éval. / Max)</th>
+                                        <th>Moyenne du Cours (%)</th>
+                                        <th>Remarques</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for course_grade_info in student_info.courses_grades %}
+                                        <tr>
+                                            <td><strong>{{ course_grade_info.course.name }}</strong></td>
+                                            <td>
+                                                {% if course_grade_info.grades %}
+                                                    {% for grade in course_grade_info.grades %}
+                                                        {{ grade.evaluation.name }}: {{ grade.score|floatformat:2 }} / {{ grade.evaluation.max_score|floatformat:2 }}<br>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    Aucune note
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if course_grade_info.course_average != 'N/A' %}
+                                                    <span class="badge {% if course_grade_info.course_average >= 50 %}bg-success{% else %}bg-danger{% endif %}">{{ course_grade_info.course_average|floatformat:2 }}%</span>
+                                                {% else %}
+                                                    N/A
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if course_grade_info.grades %}
+                                                    {% for grade in course_grade_info.grades %}
+                                                        {{ grade.remarks|default:"" }}<br>
+                                                    {% endfor %}
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-info">
+                                        <th colspan="2" class="text-end">Moyenne Générale :</th>
+                                        <th>
+                                            {% if student_info.overall_average != 'N/A' %}
+                                                <span class="badge {% if student_info.overall_average >= 50 %}bg-success{% else %}bg-danger{% endif %}">{{ student_info.overall_average|floatformat:2 }}%</span>
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        </th>
+                                        <th></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {# Option d'impression/export #}
+        <div class="d-flex justify-content-end mb-4">
+            <button class="btn btn-info me-2" onclick="window.print()">
+                <i class="fas fa-print me-2"></i> Imprimer les Bulletins
+            </button>
+            {# Pour un export PDF/CSV réel, il faudrait une vue dédiée et une bibliothèque comme ReportLab ou Pandas #}
+            {# <a href="#" class="btn btn-info"><i class="fas fa-file-export me-2"></i> Exporter en PDF</a> #}
+        </div>
+
+    {% elif selected_class_id and selected_period_id %}
+        <div class="alert alert-info text-center" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i> Aucun élève ou note trouvée pour cette classe et période.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

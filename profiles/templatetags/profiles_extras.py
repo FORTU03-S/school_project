@@ -1,18 +1,19 @@
 # profiles/templatetags/profiles_extras.py
+
 from django import template
 
 register = template.Library()
 
 @register.filter
 def get_classe_name(course):
-    """Retourne le nom de la classe d'un cours ou 'N/A' si la classe est nulle."""
-    if course.classe:
-        return course.classe.name
-    return 'N/A'
-
-@register.filter
-def get_classe_full_name(course):
-    """Retourne le nom complet de la classe (Nom du cours (Nom de la classe)) ou Nom du cours (N/A)."""
-    if course.classe:
-        return f"{course.name} ({course.classe.name})"
-    return f"{course.name} (N/A)"
+    # 'classes' est un ManyToManyField, il faut itérer dessus pour obtenir les noms
+    # Si un cours peut être associé à plusieurs classes, nous voulons afficher tous les noms.
+    # Si vous voulez juste la première classe, utilisez .first()
+    # Si vous voulez tous les noms séparés par des virgules :
+    
+    # Vérifiez si le cours a des classes associées
+    if course.classes.exists():
+        # Récupère tous les noms des classes et les joint avec une virgule
+        return ", ".join([classe.name for classe in course.classes.all()])
+    else:
+        return "N/A" # Ou une autre indication si aucune classe n'est associée

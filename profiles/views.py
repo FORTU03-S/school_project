@@ -8,16 +8,17 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout, authenticate, get_user_model
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Q, Count, Sum, F, ExpressionWrapper, DecimalField
+from django.db.models import Q, Count, Sum, F, ExpressionWrapper, DecimalField, Sum, Avg
 from django.db import transaction
 from django.utils import timezone # Assurez-vous que timezone est importé
 from school.models import Enrollment, Evaluation, Grade, AcademicPeriod, EvaluationType, Course, ClassAssignment, Classe, Attendance, DisciplinaryRecord, Payment, AcademicPeriod # Assurez-vous que tous sont importés
-from django.forms import formset_factory, ModelForm, DateInput
+from django.forms import formset_factory, ModelForm, DateInput, CheckboxSelectMultiple
 from profiles.models import CustomUser, UserRole, Student # Assurez-vous que CustomUser et UserRole sont importés
 from  profiles.forms import Notification
 from school.models import School, TuitionFee
 from .models import CustomUser as User
 from django import forms
+from school.forms import EnrollmentForm
 
 
 # Importez tous les formulaires nécessaires
@@ -32,7 +33,8 @@ from .forms import (
     DisciplinaryRecordForm,# Ajouté pour la vue teacher_student_detail_view si besoin 
     CourseForm,
     AcademicPeriodForm,
-    TeacherCreationForm 
+    TeacherCreationForm,
+    
 )
 from profiles.forms import ClasseForm
 from .models import UserRole, Notification
@@ -166,26 +168,18 @@ def register_teacher_view(request):
         form = TeacherRegistrationForm()
     return render(request, 'profiles/register_teacher.html', {'form': form, 'title': 'Inscription Enseignant'})
 
-# --- Vues des tableaux de bord ---
-@login_required # Cette vue nécessite une connexion
+# profiles/views.py (ou le fichier où se trouve votre home_view)
+
+# ... (vos imports existants) ...
+
 def home_view(request):
-    if request.user.is_authenticated and request.user.is_approved:
-        # L'utilisateur est connecté et approuvé, le rediriger vers son tableau de bord spécifique
-        if request.user.user_type == UserRole.PARENT:
-            return redirect('profiles:parent_my_children') # <-- Assurez-vous que cette URL est bien définie
-        elif request.user.user_type == UserRole.TEACHER:
-            return redirect('profiles:teacher_dashboard')
-        elif request.user.user_type == UserRole.ADMIN or request.user.user_type == UserRole.DIRECTION:
-            return redirect('profiles:direction_dashboard')
-        elif request.user.user_type == UserRole.ACCOUNTANT:
-            return redirect('profiles:accounting_dashboard')
-        else:
-            messages.info(request, "Bienvenue sur l'application ! Votre rôle ne dispose pas d'un tableau de bord spécifique pour le moment.")
-            return render(request, 'profiles/home.html', {'title': 'Accueil'}) # Rend un template générique si pas de dashboard spécifique
-    else:
-        # Si l'utilisateur n'est pas authentifié ou pas approuvé, le @login_required l'aurait déjà redirigé.
-        # Mais si, par un autre chemin, il arrive ici sans être approuvé, on redirige vers la connexion.
-        return redirect('profiles:login') # Redirige vers la page de connexion si pas authentifié/approuvé
+    # Pour le message initial si besoin, sinon on peut l'enlever
+    # message = request.session.pop('welcome_message', None)
+    context = {
+        'title': 'Bienvenue sur SYBEMAcademia',
+        # 'message': message, # Décommentez si vous utilisez un message de session
+    }
+    return render(request, 'home.html', context) # Assurez-vous que 'home.html' est le bon chemin
 
 @login_required
 @user_passes_test(is_parent, login_url='/login/')
@@ -1030,7 +1024,7 @@ def teacher_enter_grades(request, evaluation_id):
     enrollments_qs = Enrollment.objects.filter(
         course=evaluation.course,
         course__school=teacher_user.school # Redundant with evaluation filter, but good for clarity/safety
-    ).select_related('student').order_by('student_last_name', 'student_first_name')
+    ).select_related('student').order_by('student__last_name', 'student__first_name')
 
     # Get existing grades for this evaluation and these enrollments
     existing_grades_qs = Grade.objects.filter(evaluation=evaluation, enrollment__in=enrollments_qs)
@@ -1229,227 +1223,7 @@ def is_teacher_assigned_to_student_class(teacher_user: CustomUser, student: Stud
     return teacher_user.taught_courses.filter(classe=student.current_classe, school=teacher_user.school).exists()
 
 
-@login_required
-@user_passes_test(lambda u: u.is_approved and u.user_type == UserRole.TEACHER)
-def teacher_student_detail_view(request, student_id):
-    student = get_object_or_404(Student, id=student_id)
-    teacher_user = request.user
-
-    # VERIFICATION 1: Sécurité - L'enseignant est-il assigné à la classe de l'élève ?
-    #if not is_teacher_assigned_to_student_class(teacher_user, student):
-     #   messages.error(request, "Vous n'êtes pas autorisé à voir le profil de cet élève ou à gérer ses notes.")
-      #  return redirect('profiles:teacher_list_students_view')
-
-    # --- Données pour les cours de l'élève que l'enseignant enseigne ---
-    teacher_courses_for_this_student = Course.objects.filter(
-        teachers=teacher_user,
-        enrollments__student=student,
-        school=teacher_user.school
-    ).distinct().order_by('name')
-
-    academic_periods = AcademicPeriod.objects.filter(school=teacher_user.school).order_by('-start_date')
-
-    # --- Gestion des Évaluations et Notes (avec filtre par date) ---
-    selected_date_str = request.GET.get('evaluation_date_filter')
-
-    # CORRECTION DE L'ERREUR PRÉCÉDENTE "Cannot resolve keyword 'course_enrollments_student'"
-    # La traversée doit se faire via le related_name correct de Enrollment vers Course.
-    # Si Enrollment a une ForeignKey 'course' sans related_name, le défaut est 'enrollment_set'
-    # Sinon, si 'enrollment' est le related_name, c'est 'enrollment'.
-    # Ici, nous utilisons 'enrollment' qui est un choix courant.
-    evaluations_query = Evaluation.objects.filter(
-        Q(course__in=teacher_courses_for_this_student) &
-        Q(course__enrollments__student=student) # Supposant que le related_name de Enrollment.course est 'enrollment'
-    ).distinct()
-
-    if selected_date_str:
-        try:
-            filter_date = timezone.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
-            evaluations_query = evaluations_query.filter(date=filter_date)
-        except ValueError:
-            messages.warning(request, "Format de date invalide pour le filtre. Affichage de toutes les évaluations.")
-            selected_date_str = None
-
-    evaluations_for_display = evaluations_query.order_by('-date', 'course__name')
-
-    grades_data = []
-    for evaluation in evaluations_for_display:
-        enrollment_for_eval_course = Enrollment.objects.filter(student=student, course=evaluation.course).first()
-        grade = None
-        if enrollment_for_eval_course:
-            grade = Grade.objects.filter(enrollment=enrollment_for_eval_course, evaluation=evaluation).first()
-
-        grades_data.append({
-            'evaluation': evaluation,
-            'grade_obj': grade,
-            'score': grade.score if grade else '',
-            'remarks': grade.remarks if grade else '',
-            'notation': grade.get_notation() if grade else 'N/A'
-        })
-
-    # --- Données pour les Actions Disciplinaires ---
-    disciplinary_records = DisciplinaryRecord.objects.filter(student=student).order_by('-created_at')
-
-    # Initialisation du formulaire disciplinaire pour les requêtes GET ou si le POST n'est pas lié
-    disciplinary_form = DisciplinaryRecordForm()
-
-    # --- Traitement des POST (Ajout d'évaluation et Saisie/Modification de notes, Ajout Disciplinaire) ---
-    if request.method == 'POST':
-        action_type = request.POST.get('action_type')
-
-        if action_type == 'add_evaluation':
-            name = request.POST.get('name')
-            course_id = request.POST.get('course')
-            evaluation_type = request.POST.get('evaluation_type')
-            date_str = request.POST.get('date')
-            max_score = request.POST.get('max_score')
-            description = request.POST.get('description')
-            academic_period_id = request.POST.get('academic_period')
-
-            try:
-                course = teacher_courses_for_this_student.get(id=course_id)
-                academic_period = AcademicPeriod.objects.get(id=academic_period_id, school=teacher_user.school)
-                date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
-                max_score = float(max_score)
-
-                Evaluation.objects.create(
-                    name=name,
-                    course=course,
-                    evaluation_type=evaluation_type,
-                    date=date,
-                    max_score=max_score,
-                    description=description,
-                    created_by=teacher_user,
-                    academic_period=academic_period
-                )
-                messages.success(request, "Évaluation ajoutée avec succès.")
-            except Course.DoesNotExist:
-                messages.error(request, "Cours non trouvé ou non assigné à votre profil pour cet élève.")
-            except AcademicPeriod.DoesNotExist:
-                messages.error(request, "Période académique non trouvée.")
-            except ValueError:
-                messages.error(request, "Erreur de format de date ou de score maximum.")
-            except Exception as e:
-                messages.error(request, f"Erreur lors de l'ajout de l'évaluation : {e}")
-
-        elif action_type == 'save_grade':
-            with transaction.atomic():
-                grades_saved_count = 0
-                grades_deleted_count = 0
-                errors_count = 0
-                
-                for item in grades_data: 
-                    evaluation = item['evaluation']
-                    
-                    score_str = request.POST.get(f'score_{evaluation.id}')
-                    remarks = request.POST.get(f'remarks_{evaluation.id}', '').strip()
-
-                    if not evaluation.course.teachers.filter(id=teacher_user.id).exists():
-                        messages.warning(request, f"Vous n'êtes pas autorisé à modifier les notes pour l'évaluation '{evaluation.name}'.")
-                        errors_count += 1
-                        continue
-
-                    enrollment_for_grade = Enrollment.objects.filter(student=student, course=evaluation.course).first()
-                    
-                    if not enrollment_for_grade:
-                        messages.warning(request, f"L'élève n'est pas inscrit au cours de l'évaluation '{evaluation.name}'. Note non enregistrée.")
-                        errors_count += 1
-                        continue
-
-                    existing_grade = Grade.objects.filter(
-                        evaluation=evaluation,
-                        enrollment=enrollment_for_grade
-                    ).first()
-
-                    if score_str:
-                        try:
-                            score = float(score_str)
-                            if not (0 <= score <= float(evaluation.max_score)):
-                                messages.warning(request, f"La note saisie ({score}) est hors des limites ({evaluation.max_score}) pour l'évaluation '{evaluation.name}'.")
-                                errors_count += 1
-                                continue
-                            
-                            if existing_grade:
-                                existing_grade.score = score
-                                existing_grade.remarks = remarks
-                                existing_grade.graded_by = teacher_user
-                                existing_grade.save()
-                                grades_saved_count += 1
-                            else:
-                                Grade.objects.create(
-                                    enrollment=enrollment_for_grade,
-                                    evaluation=evaluation,
-                                    score=score,
-                                    remarks=remarks,
-                                    graded_by=teacher_user
-                                )
-                                grades_saved_count += 1
-                        except ValueError:
-                            messages.error(request, f"La note saisie pour l'évaluation '{evaluation.name}' n'est pas un nombre valide.")
-                            errors_count += 1
-                    else:
-                        if existing_grade:
-                            existing_grade.delete()
-                            grades_deleted_count += 1
-                
-                if grades_saved_count > 0:
-                    messages.success(request, f"{grades_saved_count} note(s) enregistrée(s) ou mise(s) à jour avec succès.")
-                if grades_deleted_count > 0:
-                    messages.info(request, f"{grades_deleted_count} note(s) supprimée(s).")
-                if errors_count > 0:
-                    messages.error(request, f"Des erreurs sont survenues lors du traitement de {errors_count} note(s).")
-                if grades_saved_count == 0 and grades_deleted_count == 0 and errors_count == 0:
-                    messages.info(request, "Aucune modification de note à enregistrer.")
-
-        elif action_type == 'add_disciplinary_record':
-            disciplinary_form = DisciplinaryRecordForm(request.POST)
-            if disciplinary_form.is_valid():
-                record = disciplinary_form.save(commit=False)
-                record.student = student
-                record.reported_by = teacher_user
-                record.school = teacher_user.school
-                record.save()
-                messages.success(request, "Dossier disciplinaire ajouté avec succès.")
-
-                parents = student.parents.all()
-                if parents.exists():
-                    message_subject = f"Action Disciplinaire concernant votre enfant {student.full_name}"
-                    message_body = (
-                        f"Cher parent,\n\n"
-                        f"Nous vous informons qu'une action disciplinaire a été enregistrée pour votre enfant, {student.full_name}, "
-                        f"concernant un incident le {record.incident_date.strftime('%d/%m/%Y')}.\n"
-                        f"Description: {record.description}\n"
-                        f"Action prise: {record.action_taken}\n\n"
-                        f"Veuillez en discuter avec votre enfant.\n\nCordialement,\nVotre école."
-                    )
-                    for parent_user in parents:
-                        Notification.objects.create(
-                            recipient=parent_user,
-                            sender=teacher_user,
-                            subject=message_subject,
-                            message=message_body,
-                            notification_type='DISCIPLINARY'
-                        )
-                else:
-                    messages.warning(request, f"L'élève {student.full_name} n'a pas de parents liés pour la notification disciplinaire.")
-
-            else:
-                messages.error(request, "Erreur lors de l'ajout du dossier disciplinaire. Veuillez vérifier les champs.")
-        
-        return redirect('profiles:teacher_student_detail', student_id=student.id)
-
-    context = {
-        'title': f'Profil de l\'Élève : {student.full_name}',
-        'student': student,
-        'evaluations_for_student': grades_data,
-        'teacher_courses_for_this_student': teacher_courses_for_this_student,
-        'academic_periods': academic_periods,
-        'evaluation_types': EvaluationType.choices,
-        'selected_date_str': selected_date_str,
-        'disciplinary_records': disciplinary_records,
-        'disciplinary_form': disciplinary_form,
-    }
-    return render(request, 'profiles/teacher_student_detail.html', context)
+ 
 
 @login_required
 @user_passes_test(lambda u: u.is_approved and u.user_type == UserRole.TEACHER)
@@ -2284,6 +2058,228 @@ def direction_teacher_registration(request):
 # ... (le reste de vos vues) ...
 
 @login_required
+@user_passes_test(lambda u: u.is_approved and u.user_type == UserRole.TEACHER)
+def teacher_student_detail_view(request, student_id):
+    student = get_object_or_404(Student, id=student_id)
+    teacher_user = request.user
+
+    # VERIFICATION 1: Sécurité - L'enseignant est-il assigné à la classe de l'élève ?
+    #if not is_teacher_assigned_to_student_class(teacher_user, student):
+     #   messages.error(request, "Vous n'êtes pas autorisé à voir le profil de cet élève ou à gérer ses notes.")
+      #  return redirect('profiles:teacher_list_students_view')
+
+    # --- Données pour les cours de l'élève que l'enseignant enseigne ---
+    teacher_courses_for_this_student = Course.objects.filter(
+        teachers=teacher_user,
+        enrollments__student=student,
+        school=teacher_user.school
+    ).distinct().order_by('name')
+
+    academic_periods = AcademicPeriod.objects.filter(school=teacher_user.school).order_by('-start_date')
+
+    # --- Gestion des Évaluations et Notes (avec filtre par date) ---
+    selected_date_str = request.GET.get('evaluation_date_filter')
+
+    # CORRECTION DE L'ERREUR PRÉCÉDENTE "Cannot resolve keyword 'course_enrollments_student'"
+    # La traversée doit se faire via le related_name correct de Enrollment vers Course.
+    # Si Enrollment a une ForeignKey 'course' sans related_name, le défaut est 'enrollment_set'
+    # Sinon, si 'enrollment' est le related_name, c'est 'enrollment'.
+    # Ici, nous utilisons 'enrollment' qui est un choix courant.
+    evaluations_query = Evaluation.objects.filter(
+        Q(course__in=teacher_courses_for_this_student) &
+        Q(course_enrollments_student=student) # Supposant que le related_name de Enrollment.course est 'enrollment'
+    ).distinct()
+
+    if selected_date_str:
+        try:
+            filter_date = timezone.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+            evaluations_query = evaluations_query.filter(date=filter_date)
+        except ValueError:
+            messages.warning(request, "Format de date invalide pour le filtre. Affichage de toutes les évaluations.")
+            selected_date_str = None
+
+    evaluations_for_display = evaluations_query.order_by('-date', 'course__name')
+
+    grades_data = []
+    for evaluation in evaluations_for_display:
+        enrollment_for_eval_course = Enrollment.objects.filter(student=student, course=evaluation.course).first()
+        grade = None
+        if enrollment_for_eval_course:
+            grade = Grade.objects.filter(enrollment=enrollment_for_eval_course, evaluation=evaluation).first()
+
+        grades_data.append({
+            'evaluation': evaluation,
+            'grade_obj': grade,
+            'score': grade.score if grade else '',
+            'remarks': grade.remarks if grade else '',
+            'notation': grade.get_notation() if grade else 'N/A'
+        })
+
+    # --- Données pour les Actions Disciplinaires ---
+    disciplinary_records = DisciplinaryRecord.objects.filter(student=student).order_by('-created_at')
+
+    # Initialisation du formulaire disciplinaire pour les requêtes GET ou si le POST n'est pas lié
+    disciplinary_form = DisciplinaryRecordForm()
+
+    # --- Traitement des POST (Ajout d'évaluation et Saisie/Modification de notes, Ajout Disciplinaire) ---
+    if request.method == 'POST':
+        action_type = request.POST.get('action_type')
+
+        if action_type == 'add_evaluation':
+            name = request.POST.get('name')
+            course_id = request.POST.get('course')
+            evaluation_type = request.POST.get('evaluation_type')
+            date_str = request.POST.get('date')
+            max_score = request.POST.get('max_score')
+            description = request.POST.get('description')
+            academic_period_id = request.POST.get('academic_period')
+
+            try:
+                course = teacher_courses_for_this_student.get(id=course_id)
+                academic_period = AcademicPeriod.objects.get(id=academic_period_id, school=teacher_user.school)
+                date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
+                max_score = float(max_score)
+
+                Evaluation.objects.create(
+                    name=name,
+                    course=course,
+                    evaluation_type=evaluation_type,
+                    date=date,
+                    max_score=max_score,
+                    description=description,
+                    created_by=teacher_user,
+                    academic_period=academic_period
+                )
+                messages.success(request, "Évaluation ajoutée avec succès.")
+            except Course.DoesNotExist:
+                messages.error(request, "Cours non trouvé ou non assigné à votre profil pour cet élève.")
+            except AcademicPeriod.DoesNotExist:
+                messages.error(request, "Période académique non trouvée.")
+            except ValueError:
+                messages.error(request, "Erreur de format de date ou de score maximum.")
+            except Exception as e:
+                messages.error(request, f"Erreur lors de l'ajout de l'évaluation : {e}")
+
+        elif action_type == 'save_grade':
+            with transaction.atomic():
+                grades_saved_count = 0
+                grades_deleted_count = 0
+                errors_count = 0
+                
+                for item in grades_data: 
+                    evaluation = item['evaluation']
+                    
+                    score_str = request.POST.get(f'score_{evaluation.id}')
+                    remarks = request.POST.get(f'remarks_{evaluation.id}', '').strip()
+
+                    if not evaluation.course.teachers.filter(id=teacher_user.id).exists():
+                        messages.warning(request, f"Vous n'êtes pas autorisé à modifier les notes pour l'évaluation '{evaluation.name}'.")
+                        errors_count += 1
+                        continue
+
+                    enrollment_for_grade = Enrollment.objects.filter(student=student, course=evaluation.course).first()
+                    
+                    if not enrollment_for_grade:
+                        messages.warning(request, f"L'élève n'est pas inscrit au cours de l'évaluation '{evaluation.name}'. Note non enregistrée.")
+                        errors_count += 1
+                        continue
+
+                    existing_grade = Grade.objects.filter(
+                        evaluation=evaluation,
+                        enrollment=enrollment_for_grade
+                    ).first()
+
+                    if score_str:
+                        try:
+                            score = float(score_str)
+                            if not (0 <= score <= float(evaluation.max_score)):
+                                messages.warning(request, f"La note saisie ({score}) est hors des limites ({evaluation.max_score}) pour l'évaluation '{evaluation.name}'.")
+                                errors_count += 1
+                                continue
+                            
+                            if existing_grade:
+                                existing_grade.score = score
+                                existing_grade.remarks = remarks
+                                existing_grade.graded_by = teacher_user
+                                existing_grade.save()
+                                grades_saved_count += 1
+                            else:
+                                Grade.objects.create(
+                                    enrollment=enrollment_for_grade,
+                                    evaluation=evaluation,
+                                    score=score,
+                                    remarks=remarks,
+                                    graded_by=teacher_user
+                                )
+                                grades_saved_count += 1
+                        except ValueError:
+                            messages.error(request, f"La note saisie pour l'évaluation '{evaluation.name}' n'est pas un nombre valide.")
+                            errors_count += 1
+                    else:
+                        if existing_grade:
+                            existing_grade.delete()
+                            grades_deleted_count += 1
+                
+                if grades_saved_count > 0:
+                    messages.success(request, f"{grades_saved_count} note(s) enregistrée(s) ou mise(s) à jour avec succès.")
+                if grades_deleted_count > 0:
+                    messages.info(request, f"{grades_deleted_count} note(s) supprimée(s).")
+                if errors_count > 0:
+                    messages.error(request, f"Des erreurs sont survenues lors du traitement de {errors_count} note(s).")
+                if grades_saved_count == 0 and grades_deleted_count == 0 and errors_count == 0:
+                    messages.info(request, "Aucune modification de note à enregistrer.")
+
+        elif action_type == 'add_disciplinary_record':
+            disciplinary_form = DisciplinaryRecordForm(request.POST)
+            if disciplinary_form.is_valid():
+                record = disciplinary_form.save(commit=False)
+                record.student = student
+                record.reported_by = teacher_user
+                record.school = teacher_user.school
+                record.save()
+                messages.success(request, "Dossier disciplinaire ajouté avec succès.")
+
+                parents = student.parents.all()
+                if parents.exists():
+                    message_subject = f"Action Disciplinaire concernant votre enfant {student.full_name}"
+                    message_body = (
+                        f"Cher parent,\n\n"
+                        f"Nous vous informons qu'une action disciplinaire a été enregistrée pour votre enfant, {student.full_name}, "
+                        f"concernant un incident le {record.incident_date.strftime('%d/%m/%Y')}.\n"
+                        f"Description: {record.description}\n"
+                        f"Action prise: {record.action_taken}\n\n"
+                        f"Veuillez en discuter avec votre enfant.\n\nCordialement,\nVotre école."
+                    )
+                    for parent_user in parents:
+                        Notification.objects.create(
+                            recipient=parent_user,
+                            sender=teacher_user,
+                            subject=message_subject,
+                            message=message_body,
+                            notification_type='DISCIPLINARY'
+                        )
+                else:
+                    messages.warning(request, f"L'élève {student.full_name} n'a pas de parents liés pour la notification disciplinaire.")
+
+            else:
+                messages.error(request, "Erreur lors de l'ajout du dossier disciplinaire. Veuillez vérifier les champs.")
+        
+        return redirect('profiles:teacher_student_detail', student_id=student.id)
+
+    context = {
+        'title': f'Profil de l\'Élève : {student.full_name}',
+        'student': student,
+        'evaluations_for_student': grades_data,
+        'teacher_courses_for_this_student': teacher_courses_for_this_student,
+        'academic_periods': academic_periods,
+        'evaluation_types': EvaluationType.choices,
+        'selected_date_str': selected_date_str,
+        'disciplinary_records': disciplinary_records,
+        'disciplinary_form': disciplinary_form,
+    }
+    return render(request, 'profiles/teacher_student_detail.html', context)
+
+@login_required
 @user_passes_test(is_direction, login_url='/login/')
 def course_create(request):
     user = request.user # La direction connectée
@@ -2310,3 +2306,562 @@ def course_create(request):
         'title': "Ajouter un nouveau Cours"
     }
     return render(request, 'profiles/course_form.html', context) # Assurez-vous que ce template existe
+
+def is_teacher(user):
+    return user.is_authenticated and user.user_type == UserRole.TEACHER
+
+@login_required
+@user_passes_test(is_teacher, login_url='/login/')
+def teacher_manage_student_enrollments(request):
+    teacher_user = request.user
+    if not teacher_user.school:
+        messages.error(request, "Votre compte enseignant n'est pas lié à une école. Veuillez contacter l'administrateur.")
+        return redirect('profiles:teacher_dashboard') # Redirigez vers le tableau de bord de l'enseignant
+
+    # Filtrer les classes que cet enseignant enseigne
+    # Supposons que les cours sont liés à une classe, et les enseignants aux cours
+    # On peut trouver les classes via les cours enseignés
+    teacher_classes_ids = Course.objects.filter(
+        teachers=teacher_user, 
+        school=teacher_user.school
+    ).values_list('classes__id', flat=True).distinct()
+
+    teacher_classes = Classe.objects.filter(id__in=teacher_classes_ids, school=teacher_user.school)
+
+    # Récupérer les inscriptions existantes pour les classes de cet enseignant
+    # Filtrer les inscriptions qui concernent les cours que l'enseignant dispense
+    # ou les élèves dans les classes qu'il enseigne.
+    # Pour l'instant, on liste juste les élèves de l'école de l'enseignant
+    # avec leurs inscriptions si elles existent dans les cours de l'enseignant.
+    
+    # Option 1: Afficher toutes les inscriptions des cours enseignés par cet enseignant
+    enrollments_managed_by_teacher = Enrollment.objects.filter(
+        course__teachers=teacher_user,
+        course__school=teacher_user.school
+    ).select_related('student', 'course', 'academic_period').order_by(
+        'course__name', 'student__last_name'
+    )
+
+    context = {
+        'title': 'Gérer les Inscriptions des Élèves',
+        'teacher_classes': teacher_classes, # Utile pour un filtre ou une navigation
+        'enrollments': enrollments_managed_by_teacher,
+    }
+    return render(request, 'profiles/teacher_manage_student_enrollments.html', context)
+
+@login_required
+@user_passes_test(is_teacher, login_url='/login/')
+def teacher_add_enrollment(request):
+    teacher_user = request.user
+    if not teacher_user.school:
+        messages.error(request, "Votre compte enseignant n'est pas lié à une école.")
+        return redirect('profiles:teacher_dashboard')
+
+    # Important : Passer le teacher_user au formulaire pour filtrer les choix
+    # et potentiellement la classe si un enseignant est lié à une seule classe pour l'inscription
+    form = EnrollmentForm(teacher_user=teacher_user, data=request.POST or None)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    enrollment = form.save(commit=False)
+                    # L'école de l'inscription est celle du cours sélectionné, ou celle de l'enseignant
+                    enrollment.enrollment_date = timezone.now().date() # Date d'inscription automatique
+                    enrollment.save()
+                    messages.success(request, f"L'élève '{enrollment.student.full_name}' a été inscrit au cours '{enrollment.course.name}' avec succès.")
+                    return redirect('profiles:teacher_manage_student_enrollments') # Redirigez vers la liste des inscriptions gérées par l'enseignant
+            except Exception as e:
+                messages.error(request, f"Une erreur s'est produite lors de l'inscription : {e}")
+        else:
+            messages.error(request, "Veuillez corriger les erreurs dans le formulaire.")
+
+    context = {
+        'title': 'Inscrire un Élève à un Cours',
+        'form': form,
+    }
+    return render(request, 'profiles/teacher_add_enrollment.html', context)
+
+@login_required
+@user_passes_test(lambda u: u.is_approved and u.user_type == UserRole.TEACHER)
+def teacher_student_detail_view(request, student_id):
+    student = get_object_or_404(Student, id=student_id)
+    teacher_user = request.user
+
+    # VERIFICATION 1: Sécurité - L'enseignant est-il assigné à la classe de l'élève ?
+    #if not is_teacher_assigned_to_student_class(teacher_user, student):
+     #   messages.error(request, "Vous n'êtes pas autorisé à voir le profil de cet élève ou à gérer ses notes.")
+      #  return redirect('profiles:teacher_list_students_view')
+
+    # --- Données pour les cours de l'élève que l'enseignant enseigne ---
+    teacher_courses_for_this_student = Course.objects.filter(
+        teachers=teacher_user,
+        enrollments__student=student,
+        school=teacher_user.school
+    ).distinct().order_by('name')
+
+    academic_periods = AcademicPeriod.objects.filter(school=teacher_user.school).order_by('-start_date')
+
+    # --- Gestion des Évaluations et Notes (avec filtre par date) ---
+    selected_date_str = request.GET.get('evaluation_date_filter')
+
+    # CORRECTION DE L'ERREUR PRÉCÉDENTE "Cannot resolve keyword 'course_enrollments_student'"
+    # La traversée doit se faire via le related_name correct de Enrollment vers Course.
+    # Si Enrollment a une ForeignKey 'course' sans related_name, le défaut est 'enrollment_set'
+    # Sinon, si 'enrollment' est le related_name, c'est 'enrollment'.
+    # Ici, nous utilisons 'enrollment' qui est un choix courant.
+    evaluations_query = Evaluation.objects.filter(
+        Q(course__in=teacher_courses_for_this_student) &
+        Q(course__enrollments__student=student) # Supposant que le related_name de Enrollment.course est 'enrollment'
+    ).distinct()
+
+    if selected_date_str:
+        try:
+            filter_date = timezone.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+            evaluations_query = evaluations_query.filter(date=filter_date)
+        except ValueError:
+            messages.warning(request, "Format de date invalide pour le filtre. Affichage de toutes les évaluations.")
+            selected_date_str = None
+
+    evaluations_for_display = evaluations_query.order_by('-date', 'course__name')
+
+    grades_data = []
+    for evaluation in evaluations_for_display:
+        enrollment_for_eval_course = Enrollment.objects.filter(student=student, course=evaluation.course).first()
+        grade = None
+        if enrollment_for_eval_course:
+            grade = Grade.objects.filter(enrollment=enrollment_for_eval_course, evaluation=evaluation).first()
+
+        grades_data.append({
+            'evaluation': evaluation,
+            'grade_obj': grade,
+            'score': grade.score if grade else '',
+            'remarks': grade.remarks if grade else '',
+            'notation': grade.get_notation() if grade else 'N/A'
+        })
+
+    # --- Données pour les Actions Disciplinaires ---
+    disciplinary_records = DisciplinaryRecord.objects.filter(student=student).order_by('-created_at')
+
+    # Initialisation du formulaire disciplinaire pour les requêtes GET ou si le POST n'est pas lié
+    disciplinary_form = DisciplinaryRecordForm()
+
+    # --- Traitement des POST (Ajout d'évaluation et Saisie/Modification de notes, Ajout Disciplinaire) ---
+    if request.method == 'POST':
+        action_type = request.POST.get('action_type')
+
+        if action_type == 'add_evaluation':
+            name = request.POST.get('name')
+            course_id = request.POST.get('course')
+            evaluation_type = request.POST.get('evaluation_type')
+            date_str = request.POST.get('date')
+            max_score = request.POST.get('max_score')
+            description = request.POST.get('description')
+            academic_period_id = request.POST.get('academic_period')
+
+            try:
+                course = teacher_courses_for_this_student.get(id=course_id)
+                academic_period = AcademicPeriod.objects.get(id=academic_period_id, school=teacher_user.school)
+                date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
+                max_score = float(max_score)
+
+                Evaluation.objects.create(
+                    name=name,
+                    course=course,
+                    evaluation_type=evaluation_type,
+                    date=date,
+                    max_score=max_score,
+                    description=description,
+                    created_by=teacher_user,
+                    academic_period=academic_period
+                )
+                messages.success(request, "Évaluation ajoutée avec succès.")
+            except Course.DoesNotExist:
+                messages.error(request, "Cours non trouvé ou non assigné à votre profil pour cet élève.")
+            except AcademicPeriod.DoesNotExist:
+                messages.error(request, "Période académique non trouvée.")
+            except ValueError:
+                messages.error(request, "Erreur de format de date ou de score maximum.")
+            except Exception as e:
+                messages.error(request, f"Erreur lors de l'ajout de l'évaluation : {e}")
+
+        elif action_type == 'save_grade':
+            with transaction.atomic():
+                grades_saved_count = 0
+                grades_deleted_count = 0
+                errors_count = 0
+                
+                for item in grades_data: 
+                    evaluation = item['evaluation']
+                    
+                    score_str = request.POST.get(f'score_{evaluation.id}')
+                    remarks = request.POST.get(f'remarks_{evaluation.id}', '').strip()
+
+                    if not evaluation.course.teachers.filter(id=teacher_user.id).exists():
+                        messages.warning(request, f"Vous n'êtes pas autorisé à modifier les notes pour l'évaluation '{evaluation.name}'.")
+                        errors_count += 1
+                        continue
+
+                    enrollment_for_grade = Enrollment.objects.filter(student=student, course=evaluation.course).first()
+                    
+                    if not enrollment_for_grade:
+                        messages.warning(request, f"L'élève n'est pas inscrit au cours de l'évaluation '{evaluation.name}'. Note non enregistrée.")
+                        errors_count += 1
+                        continue
+
+                    existing_grade = Grade.objects.filter(
+                        evaluation=evaluation,
+                        enrollment=enrollment_for_grade
+                    ).first()
+
+                    if score_str:
+                        try:
+                            score = float(score_str)
+                            if not (0 <= score <= float(evaluation.max_score)):
+                                messages.warning(request, f"La note saisie ({score}) est hors des limites ({evaluation.max_score}) pour l'évaluation '{evaluation.name}'.")
+                                errors_count += 1
+                                continue
+                            
+                            if existing_grade:
+                                existing_grade.score = score
+                                existing_grade.remarks = remarks
+                                existing_grade.graded_by = teacher_user
+                                existing_grade.save()
+                                grades_saved_count += 1
+                            else:
+                                Grade.objects.create(
+                                    enrollment=enrollment_for_grade,
+                                    evaluation=evaluation,
+                                    score=score,
+                                    remarks=remarks,
+                                    graded_by=teacher_user
+                                )
+                                grades_saved_count += 1
+                        except ValueError:
+                            messages.error(request, f"La note saisie pour l'évaluation '{evaluation.name}' n'est pas un nombre valide.")
+                            errors_count += 1
+                    else:
+                        if existing_grade:
+                            existing_grade.delete()
+                            grades_deleted_count += 1
+                
+                if grades_saved_count > 0:
+                    messages.success(request, f"{grades_saved_count} note(s) enregistrée(s) ou mise(s) à jour avec succès.")
+                if grades_deleted_count > 0:
+                    messages.info(request, f"{grades_deleted_count} note(s) supprimée(s).")
+                if errors_count > 0:
+                    messages.error(request, f"Des erreurs sont survenues lors du traitement de {errors_count} note(s).")
+                if grades_saved_count == 0 and grades_deleted_count == 0 and errors_count == 0:
+                    messages.info(request, "Aucune modification de note à enregistrer.")
+
+        elif action_type == 'add_disciplinary_record':
+            disciplinary_form = DisciplinaryRecordForm(request.POST)
+            if disciplinary_form.is_valid():
+                record = disciplinary_form.save(commit=False)
+                record.student = student
+                record.reported_by = teacher_user
+                record.school = teacher_user.school
+                record.save()
+                messages.success(request, "Dossier disciplinaire ajouté avec succès.")
+
+                parents = student.parents.all()
+                if parents.exists():
+                    message_subject = f"Action Disciplinaire concernant votre enfant {student.full_name}"
+                    message_body = (
+                        f"Cher parent,\n\n"
+                        f"Nous vous informons qu'une action disciplinaire a été enregistrée pour votre enfant, {student.full_name}, "
+                        f"concernant un incident le {record.incident_date.strftime('%d/%m/%Y')}.\n"
+                        f"Description: {record.description}\n"
+                        f"Action prise: {record.action_taken}\n\n"
+                        f"Veuillez en discuter avec votre enfant.\n\nCordialement,\nVotre école."
+                    )
+                    for parent_user in parents:
+                        Notification.objects.create(
+                            recipient=parent_user,
+                            sender=teacher_user,
+                            subject=message_subject,
+                            message=message_body,
+                            notification_type='DISCIPLINARY'
+                        )
+                else:
+                    messages.warning(request, f"L'élève {student.full_name} n'a pas de parents liés pour la notification disciplinaire.")
+
+            else:
+                messages.error(request, "Erreur lors de l'ajout du dossier disciplinaire. Veuillez vérifier les champs.")
+        
+        return redirect('profiles:teacher_student_detail', student_id=student.id)
+
+    context = {
+        'title': f'Profil de l\'Élève : {student.full_name}',
+        'student': student,
+        'evaluations_for_student': grades_data,
+        'teacher_courses_for_this_student': teacher_courses_for_this_student,
+        'academic_periods': academic_periods,
+        'evaluation_types': EvaluationType.choices,
+        'selected_date_str': selected_date_str,
+        'disciplinary_records': disciplinary_records,
+        'disciplinary_form': disciplinary_form,
+    }
+    return render(request, 'profiles/teacher_student_detail.html', context)
+
+@login_required
+@user_passes_test(lambda u: u.user_type == UserRole.TEACHER, login_url='/login/')
+def teacher_generate_report_card(request):
+    teacher_user = request.user
+    if not teacher_user.school:
+        messages.error(request, "Votre compte enseignant n'est pas lié à une école.")
+        return redirect('profiles:teacher_dashboard')
+
+    # Filtrer les classes et périodes académiques disponibles pour cet enseignant
+    # Les classes que cet enseignant enseigne directement
+    teacher_classes = Classe.objects.filter(
+        Q(teachers=teacher_user) | Q(main_teacher=teacher_user), # Si l'enseignant est dans la ManyToMany ou main_teacher
+        school=teacher_user.school,
+    ).distinct().order_by('name')
+
+    # Les périodes académiques de son école
+    academic_periods = AcademicPeriod.objects.filter(school=teacher_user.school).order_by('-start_date')
+
+    selected_class_id = request.GET.get('class_id')
+    selected_period_id = request.GET.get('period_id')
+
+    students_with_grades = []
+    selected_class = None
+    selected_period = None
+
+    if selected_class_id and selected_period_id:
+        try:
+            selected_class = get_object_or_404(Classe, id=selected_class_id, school=teacher_user.school)
+            selected_period = get_object_or_404(AcademicPeriod, id=selected_period_id, school=teacher_user.school)
+
+            # Vérifier si l'enseignant est bien associé à cette classe ou à un cours de cette classe
+            if not (selected_class in teacher_classes):
+                 messages.error(request, "Vous n'êtes pas autorisé à générer le bulletin pour cette classe.")
+                 return redirect('profiles:teacher_generate_report_card')
+
+            # Récupérer les élèves inscrits à cette classe pour cette période
+            students_in_class = Student.objects.filter(
+                current_classe=selected_class,
+                enrollment__academic_period=selected_period,
+                school=teacher_user.school
+            ).distinct().order_by('last_name', 'first_name')
+
+            for student in students_in_class:
+                student_grades_info = {
+                    'student': student,
+                    'courses_grades': [],
+                    'total_score': 0,
+                    'total_max_score': 0,
+                    'overall_average': 'N/A'
+                }
+
+                # Récupérer les inscriptions de cet élève pour cette période
+                enrollments = Enrollment.objects.filter(
+                    student=student,
+                    academic_period=selected_period,
+                    course__classes=selected_class # Assurez-vous que l'inscription est pour un cours de cette classe
+                ).select_related('course').order_by('course__name')
+
+                for enrollment in enrollments:
+                    # Récupérer toutes les notes pour cette inscription dans cette période
+                    grades = Grade.objects.filter(
+                        enrollment=enrollment,
+                        evaluation__academic_period=selected_period # Assurez-vous que l'évaluation est dans la bonne période
+                    ).select_related('evaluation').order_by('evaluation__date')
+
+                    course_total_score = sum(g.score for g in grades if g.score is not None)
+                    course_max_possible_score = sum(g.evaluation.max_score for g in grades)
+
+                    course_avg = 'N/A'
+                    if course_max_possible_score > 0:
+                        course_avg = (course_total_score / course_max_possible_score) * 100 # Pourcentage
+                        course_avg = round(course_avg, 2) # Arrondi à 2 décimales
+
+                    student_grades_info['courses_grades'].append({
+                        'course': enrollment.course,
+                        'grades': grades, # Détails des notes individuelles pour ce cours
+                        'course_total_score': course_total_score,
+                        'course_max_possible_score': course_max_possible_score,
+                        'course_average': course_avg,
+                    })
+                    
+                    # Accumuler pour la moyenne générale
+                    student_grades_info['total_score'] += course_total_score
+                    student_grades_info['total_max_score'] += course_max_possible_score
+
+                if student_grades_info['total_max_score'] > 0:
+                    student_grades_info['overall_average'] = round((student_grades_info['total_score'] / student_grades_info['total_max_score']) * 100, 2)
+                
+                students_with_grades.append(student_grades_info)
+
+        except (Classe.DoesNotExist, AcademicPeriod.DoesNotExist):
+            messages.error(request, "Classe ou période académique non trouvée.")
+        except Exception as e:
+            messages.error(request, f"Une erreur inattendue s'est produite lors de la génération du bulletin : {e}")
+
+    context = {
+        'title': 'Générer les Bulletins Scolaires',
+        'teacher_classes': teacher_classes,
+        'academic_periods': academic_periods,
+        'selected_class_id': int(selected_class_id) if selected_class_id else None,
+        'selected_period_id': int(selected_period_id) if selected_period_id else None,
+        'selected_class': selected_class,
+        'selected_period': selected_period,
+        'students_with_grades': students_with_grades,
+    }
+    return render(request, 'profiles/teacher_generate_report_card.html', context)
+# profiles/views.py
+
+
+
+# ... (vos autres imports et fonctions) ...
+
+
+# Nouveau formulaire pour l'envoi de messages
+class TeacherMessageForm(forms.Form):
+    # Les choix pour les destinataires seront définis dynamiquement dans _init_
+    recipients = forms.MultipleChoiceField(
+        widget=CheckboxSelectMultiple,
+        label="Sélectionner les parents destinataires",
+        required=True # Rendu False si "envoyer à tous" est coché
+    )
+    
+    subject = forms.CharField(max_length=255, label="Objet du message")
+    message_body = forms.CharField(widget=forms.Textarea(attrs={'rows': 5}), label="Contenu du message")
+    
+    send_to_all_in_course = forms.BooleanField(
+        label="Envoyer à tous les parents du cours sélectionné",
+        required=False,
+        initial=False
+    )
+    
+    # Champ caché pour le cours sélectionné
+    course = forms.ModelChoiceField(
+        queryset=Course.objects.none(), # Sera rempli dynamiquement
+        required=True,
+        widget=forms.HiddenInput()
+    )
+
+    def __init__(self, *args, **kwargs):
+        teacher_user = kwargs.pop('teacher_user', None)
+        selected_course_id = kwargs.pop('selected_course_id', None)
+        super().__init__(*args, **kwargs)
+
+        if teacher_user and selected_course_id:
+            try:
+                selected_course = Course.objects.filter(
+                    id=selected_course_id,
+                    teachers=teacher_user,
+                    school=teacher_user.school
+                ).first()
+
+                if selected_course:
+                    self.fields['course'].queryset = Course.objects.filter(id=selected_course.id)
+                    self.fields['course'].initial = selected_course.id
+
+                    # Obtenir tous les élèves inscrits à ce cours et leurs parents
+                    student_enrollments = Enrollment.objects.filter(course=selected_course).select_related('student')
+                    
+                    parent_choices = []
+                    unique_parent_ids = set() # Pour éviter les doublons si un parent a plusieurs enfants dans le même cours
+
+                    for enrollment in student_enrollments:
+                        for parent_obj in enrollment.student.parents.all():
+                            if parent_obj.id not in unique_parent_ids:
+                                parent_choices.append((str(parent_obj.id), parent_obj.full_name))
+                                unique_parent_ids.add(parent_obj.id)
+                    
+                    # Trier les choix par nom de parent
+                    parent_choices.sort(key=lambda x: x[1])
+                    self.fields['recipients'].choices = parent_choices
+                else:
+                    self.add_error(None, "Cours sélectionné non valide ou non accessible.")
+            except Exception as e:
+                self.add_error(None, f"Erreur lors du chargement des destinataires: {e}")
+                print(f"Error loading message recipients: {e}") # For debugging
+        else:
+            # Si aucun cours sélectionné, désactiver le champ recipients
+            self.fields['recipients'].choices = []
+            self.fields['recipients'].widget.attrs['disabled'] = True
+
+
+@login_required
+@user_passes_test(lambda u: u.user_type == UserRole.TEACHER, login_url='/login/')
+def teacher_message_view(request):
+    teacher_user = request.user
+    if not teacher_user.school:
+        messages.error(request, "Votre compte enseignant n'est pas lié à une école.")
+        return redirect('profiles:teacher_dashboard')
+
+    teacher_courses = Course.objects.filter(teachers=teacher_user, school=teacher_user.school).order_by('name')
+    
+    selected_course_id = request.GET.get('course_id') # Pour la sélection initiale du cours
+    selected_course = None
+    if selected_course_id:
+        try:
+            selected_course = teacher_courses.get(id=selected_course_id)
+        except Course.DoesNotExist:
+            messages.error(request, "Cours non trouvé ou non accessible.")
+            selected_course_id = None # Réinitialiser si invalide
+
+    form = None
+    if selected_course:
+        if request.method == 'POST':
+            form = TeacherMessageForm(request.POST, teacher_user=teacher_user, selected_course_id=selected_course.id)
+            if form.is_valid():
+                subject = form.cleaned_data['subject']
+                message_body = form.cleaned_data['message_body']
+                send_to_all = form.cleaned_data['send_to_all_in_course']
+                
+                recipients_ids = []
+                if send_to_all:
+                    # Si "Envoyer à tous", obtenir tous les parents des élèves du cours
+                    enrollments = Enrollment.objects.filter(course=selected_course).select_related('student')
+                    for enrollment in enrollments:
+                        for parent_obj in enrollment.student.parents.all():
+                            recipients_ids.append(parent_obj.id)
+                    recipients_ids = list(set(recipients_ids)) # Éliminer les doublons de parents
+                else:
+                    # Sinon, utiliser les destinataires sélectionnés du formulaire
+                    recipients_ids = form.cleaned_data['recipients']
+
+                if not recipients_ids:
+                    messages.warning(request, "Veuillez sélectionner au moins un parent ou choisir d'envoyer à tous.")
+                else:
+                    try:
+                        with transaction.atomic():
+                            for parent_id in recipients_ids:
+                                parent_user = get_object_or_404(CustomUser, id=parent_id, user_type=UserRole.PARENT)
+                                Notification.objects.create(
+                                    recipient=parent_user,
+                                    sender=teacher_user,
+                                    subject=subject,
+                                    message=message_body,
+                                    notification_type='MESSAGE' # Ou un autre type si vous en avez un pour les messages génériques
+                                )
+                        messages.success(request, f"Message envoyé avec succès à {len(recipients_ids)} parent(s).")
+                        return redirect('profiles:send_message') # Recharger la page avec le cours sélectionné
+                    except Exception as e:
+                        messages.error(request, f"Une erreur est survenue lors de l'envoi du message : {e}")
+                        # Re-instantiate form in case of error
+                        form = TeacherMessageForm(teacher_user=teacher_user, selected_course_id=selected_course.id)
+            else:
+                messages.error(request, "Veuillez corriger les erreurs dans le formulaire.")
+                # Si le formulaire n'est pas valide, il faut le réinstancier avec les données POST pour afficher les erreurs
+                form = TeacherMessageForm(request.POST, teacher_user=teacher_user, selected_course_id=selected_course.id)
+        else:
+            # GET request or initial load after POST redirect
+            form = TeacherMessageForm(teacher_user=teacher_user, selected_course_id=selected_course.id)
+    else:
+        # Si aucun cours n'est sélectionné, initialiser un formulaire vide (ou null)
+        form = None
+
+
+    context = {
+        'title': 'Messagerie Enseignant-Parents',
+        'teacher_courses': teacher_courses,
+        'selected_course_id': int(selected_course_id) if selected_course_id else None,
+        'form': form,
+        'selected_course': selected_course,
+    }
+    return render(request, 'profiles/teacher_message.html', context) # Changement de template name ici

@@ -64,47 +64,64 @@ class TeacherMessageForm(forms.Form):
     message = forms.CharField(widget=forms.Textarea(attrs={'rows': 5}), label="Message")
     notification_type = forms.ChoiceField()
     
-        choices=[
+    choices=[
             ('MESSAGE_TEACHER', 'Message de l\'enseignant'),
             ('HOMEWORK', 'Devoir à faire'),
             ('EVALUATION', 'Évaluation à venir'),
         ],
-        label="Type de notification",
-        required=True
+        
+    label="Type de notification",
+    required=True
     
 
-# Nouveau/Modifié Formulaire pour l'inscription à un cours
 class EnrollmentForm(forms.ModelForm):
-    # Le champ 'student' sera défini par la vue, donc pas besoin de le mettre ici directement,
-    # ou alors il sera hidden. Pour l'instant, on se concentre sur le 'course'.
-
     class Meta:
         model = Enrollment
-        # Nous allons demander à l'utilisateur de choisir un 'course'
-        # 'student' sera passé depuis la vue. 'enrollment_date' peut être automatique.
-        # 'grade' sera probablement attribué plus tard.
-        fields = ['course', 'status'] # Ajoutez 'status' si vous l'avez
-
+        fields = ['student', 'course', 'academic_period', 'status']
         labels = {
+            'student': 'Élève',
             'course': 'Cours',
-            'enrollment_date': 'Date d\'Inscription',
+            'academic_period': 'Période Académique',
             'status': 'Statut d\'Inscription',
         }
         widgets = {
-            'enrollment_date': forms.DateInput(attrs={'type': 'date'}),
+            # 'enrollment_date': forms.DateInput(attrs={'type': 'date'}), # Si vous voulez la gérer manuellement, sinon elle est auto dans la vue
         }
 
     def __init__(self, *args, **kwargs):
-        school = kwargs.pop('school', None)
-        academic_period = kwargs.pop('academic_period', None) # Pour filtrer les cours par période académique
-        super()._init_(*args, **kwargs)
+        # Récupérez l'utilisateur enseignant passé depuis la vue
+        teacher_user = kwargs.pop('teacher_user', None)
+        super().__init__(*args, **kwargs)
 
-        # Filtrer les cours par l'école de l'utilisateur et la période académique actuelle/active
-        if school:
-            queryset = Course.objects.filter(classe__school=school).distinct()
-            if academic_period:
-                queryset = queryset.filter(academic_period=academic_period)
-            self.fields['course'].queryset = queryset.order_by('name')  
+        if teacher_user and teacher_user.school:
+            school = teacher_user.school
+
+            # Filtrer les périodes académiques pour l'école de l'enseignant
+            self.fields['academic_period'].queryset = AcademicPeriod.objects.filter(
+                school=school
+            ).order_by('-start_date')
+
+            # Filtrer les cours que cet enseignant est assigné à enseigner dans son école
+            teacher_courses_queryset = Course.objects.filter(
+                teachers=teacher_user,
+                school=school
+            ).order_by('name')
+            self.fields['course'].queryset = teacher_courses_queryset
+
+            # Filtrer les élèves. Un enseignant ne devrait inscrire que les élèves de sa/ses classes.
+            # On récupère d'abord les IDs des classes associées aux cours de l'enseignant
+            teacher_related_class_ids = teacher_courses_queryset.values_list('classes__id', flat=True).distinct()
+
+            # Puis on filtre les élèves par ces classes et par l'école
+            self.fields['student'].queryset = Student.objects.filter(
+                school=school,
+                current_classe__id__in=teacher_related_class_ids # Élèves des classes où l'enseignant donne cours
+            ).order_by('last_name', 'first_name')
+        else:
+            # Si pas d'enseignant ou pas d'école, les listes sont vides
+            self.fields['student'].queryset = Student.objects.none()
+            self.fields['course'].queryset = Course.objects.none()
+            self.fields['academic_period'].queryset = AcademicPeriod.objects.none()
             
    
             
@@ -212,7 +229,7 @@ class PaymentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         school = kwargs.pop('school', None)
-        super()._init_(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if school:
             # Filtrer les élèves par l'école de l'utilisateur
