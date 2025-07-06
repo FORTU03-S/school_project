@@ -1,37 +1,21 @@
-{% load static %}
 <!doctype html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SYBEMAcademia - La Solution Éducative Complète</title>
-
     <link
-      rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Sigmar&display=swap"
       rel="stylesheet"
     />
-
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
-      /* Variables CSS */
-      :root {
-        --primary-color: #0a0a0a;
-        --secondary-color: #f5f8f8;
-        --accent-color: #f8e805;
-        --text-color: #e8e8e8;
-        --bg-color: #191919;
-        --blue-start: #054af8;
-        --blue-end: #0862f3;
-        --card-bg: #2e3a59;
-        --card-bg-end: #1a2b46;
-        --font-title: "Sigmar", cursive;
-        --font-body: "Roboto Condensed", sans-serif;
-      }
-
-      /* Reset et styles de base */
+      /* Le CSS interne reste ici comme fourni.
+      Pour une application plus grande, il serait préférable de le déplacer dans un fichier CSS externe
+      (par exemple, 'static/css/style.css') et de le charger avec {% load static %} et {% static 'css/style.css' %}. */
       * {
         margin: 0;
         padding: 0;
@@ -43,67 +27,107 @@
       }
 
       body {
-        font-family: var(--font-body);
-        color: var(--text-color);
-        background: var(--bg-color);
+        font-family: "Inter", sans-serif;
+        background: white;
+        color: #1f2937;
         line-height: 1.6;
         overflow-x: hidden;
       }
 
-      h1,
-      h2,
-      h3,
-      h4,
-      h5,
-      h6 {
-        font-family: var(--font-body);
-        font-weight: 700;
+      /* Variables couleurs SYBEM */
+      :root {
+        --sybem-blue: #006be6;
+        --sybem-blue-dark: #0056b3;
+        --sybem-blue-light: #1a85ff;
+        --sybem-accent: #fbbf24;
+        --text-dark: #1f2937;
+        --text-light: #6b7280;
+        --bg-light: #f9fafb;
       }
 
-      .title-font {
-        font-family: var(--font-title);
+      /* Animations */
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
-      /* Utilitaires */
-      .gradient-blue {
-        background: linear-gradient(
-          147deg,
-          var(--blue-start) 0%,
-          var(--blue-end) 74%
-        );
+      @keyframes fadeInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
       }
 
-      .gradient-card {
-        background: linear-gradient(
-          147deg,
-          var(--card-bg) 0%,
-          var(--card-bg-end) 74%
-        );
+      @keyframes fadeInRight {
+        from {
+          opacity: 0;
+          transform: translateX(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
       }
 
-      .comic-button {
-        display: inline-block;
-        padding: 15px 30px;
-        border-radius: 10px;
-        font-weight: bold;
-        font-size: 1.1rem;
-        text-decoration: none;
-        color: var(--text-color);
-        border: 2px solid var(--secondary-color);
-        background: linear-gradient(
-          147deg,
-          var(--card-bg) 0%,
-          var(--card-bg-end) 74%
-        );
-        transition: all 0.3s ease;
-        margin-top: 50px;
+      @keyframes scaleIn {
+        from {
+          opacity: 0;
+          transform: scale(0.8);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
       }
 
-      .comic-button:hover {
-        background: var(--accent-color);
-        color: var(--primary-color);
-        transform: translateY(-3px);
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+
+      /* Classes d'animation */
+      .animate-on-scroll {
+        opacity: 0;
+        transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .animate-on-scroll.animated {
+        opacity: 1;
+      }
+
+      .fade-up {
+        animation: fadeInUp 0.8s ease-out forwards;
+      }
+
+      .fade-left {
+        animation: fadeInLeft 0.8s ease-out forwards;
+      }
+
+      .fade-right {
+        animation: fadeInRight 0.8s ease-out forwards;
+      }
+
+      .scale-in {
+        animation: scaleIn 0.8s ease-out forwards;
+      }
+
+      .floating {
+        animation: float 3s ease-in-out infinite;
       }
 
       /* Navigation */
@@ -113,418 +137,515 @@
         width: 100%;
         z-index: 1000;
         background: linear-gradient(
-          147deg,
-          var(--blue-start) 0%,
-          var(--blue-end) 74%
+          to right,
+          var(--sybem-blue),
+          var(--sybem-blue-light)
         );
-        padding: 1rem 2rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+      }
+
+      .navbar.scrolled {
+        background: rgba(0, 107, 230, 0.95);
+        backdrop-filter: blur(20px);
       }
 
       .nav-container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 0 24px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        height: 64px;
       }
 
-      .navbar-brand {
+      .logo-container {
         display: flex;
         align-items: center;
-        gap: 10px;
-        color: var(--secondary-color);
-        text-decoration: none;
-        font-weight: 700;
-        font-size: 1.5rem;
+        gap: 12px;
       }
 
-      .navbar-brand:hover {
-        color: var(--accent-color);
-      }
-
-      .brand-logo {
-        width: 40px;
+      .logo {
         height: 40px;
-        background: var(--accent-color);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--primary-color);
-        font-weight: bold;
+        width: auto;
+      }
+
+      .brand-text {
+        color: white;
+        font-size: 20px;
+        font-weight: 700;
+        text-decoration: none;
       }
 
       .nav-links {
         display: flex;
         align-items: center;
-        gap: 2rem;
-      }
-
-      .nav-links ul {
-        display: flex;
-        gap: 2rem;
-        list-style: none;
-        margin: 0;
+        gap: 32px;
       }
 
       .nav-links a {
-        color: black;
+        color: rgb(2, 2, 2);
         text-decoration: none;
-        font-size: 1.1rem;
         font-weight: 500;
-        transition: color 0.3s ease;
+        transition: all 0.2s ease;
+        position: relative;
       }
 
       .nav-links a:hover {
-        color: var(--accent-color);
+        color: var(--sybem-accent);
+        transform: translateY(-2px);
+      }
+
+      .nav-links a::after {
+        content: "";
+        position: absolute;
+        bottom: -5px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: var(--sybem-accent);
+        transition: width 0.3s ease;
+      }
+
+      .nav-links a:hover::after {
+        width: 100%;
       }
 
       .login-btn {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-        padding: 8px 15px;
-        border-radius: 5px;
-        font-weight: bold;
-        transition: background 0.3s ease;
+        background: white;
+        color: var(--sybem-blue);
+        padding: 8px 24px;
+        border-radius: 8px;
+        font-weight: 600;
         text-decoration: none;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
       }
 
       .login-btn:hover {
-        background: var(--accent-color);
+        background: var(--sybem-accent);
+        color: var(--sybem-blue-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.2);
       }
 
       /* Menu mobile */
-      .menu-btn {
+      .mobile-menu-btn {
         display: none;
         flex-direction: column;
         cursor: pointer;
         padding: 8px;
       }
 
-      .menu-btn span {
+      .mobile-menu-btn span {
         width: 25px;
         height: 2px;
-        background: var(--secondary-color);
+        background: white;
         margin: 3px 0;
         transition: all 0.3s ease;
       }
 
+      .mobile-menu-btn.active span:nth-child(1) {
+        transform: rotate(45deg) translate(5px, 5px);
+      }
+
+      .mobile-menu-btn.active span:nth-child(2) {
+        opacity: 0;
+      }
+
+      .mobile-menu-btn.active span:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -6px);
+      }
+
       .mobile-nav {
         display: none;
-        background: linear-gradient(
-          147deg,
-          var(--card-bg) 0%,
-          var(--card-bg-end) 74%
-        );
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 1rem;
+        background: var(--sybem-blue-dark);
+        padding: 20px;
       }
 
-      .mobile-nav ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-      }
-
-      .mobile-nav li {
-        margin: 1rem 0;
+      .mobile-nav.active {
+        display: block;
+        animation: fadeInUp 0.3s ease;
       }
 
       .mobile-nav a {
-        color: var(--text-color);
-        text-decoration: none;
-        font-size: 1.1rem;
         display: block;
-        padding: 0.5rem 0;
-        transition: color 0.3s ease;
+        color: rgb(5, 5, 5);
+        text-decoration: none;
+        padding: 10px 0;
+        transition: color 0.2s ease;
       }
 
       .mobile-nav a:hover {
-        color: var(--accent-color);
+        color: rgb(4, 253, 220);
+      }
+
+      /* Hero Section */
+      .hero {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f0f9ff 0%, #dbeafe 100%);
+        position: relative;
+        padding-top: 64px;
+      }
+
+      .hero-bg {
+        position: absolute;
+        inset: 0;
+        background-image: url("https://images.pexels.com/photos/28638752/pexels-photo-28638752.jpeg");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        opacity: 0.1;
+      }
+
+      .hero-content {
+        position: relative;
+        z-index: 10;
+        text-align: center;
+        max-width: 896px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      .hero h1 {
+        font-size: clamp(32px, 6vw, 64px);
+        font-weight: 700;
+        color: var(--text-dark);
+        margin-bottom: 24px;
+        line-height: 1.1;
+      }
+
+      .hero .highlight {
+        color: var(--sybem-blue);
+      }
+
+      .hero p {
+        font-size: clamp(18px, 3vw, 24px);
+        color: var(--text-light);
+        margin-bottom: 32px;
+        max-width: 768px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .cta-btn {
+        background: var(--sybem-blue);
+        color: white;
+        padding: 16px 32px;
+        border-radius: 12px;
+        font-size: 18px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      }
+
+      .cta-btn:hover {
+        background: blue;
+        transform: translateY(-3px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
       }
 
       /* Sections */
       .section {
-        min-height: 100vh;
-        padding: 80px 2rem 50px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
+        padding: 80px 0;
+      }
+
+      .container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      .section-title {
+        font-size: clamp(32px, 5vw, 48px);
+        font-weight: 700;
         text-align: center;
+        margin-bottom: 16px;
+        color: var(--text-dark);
       }
 
-      .hero {
-        background: var(--bg-color);
+      .section-subtitle {
+        font-size: 18px;
+        color: var(--text-light);
+        text-align: center;
+        max-width: 768px;
+        margin: 0 auto 64px;
       }
 
-      .hero h1 {
-        font-size: clamp(2rem, 5vw, 3.5rem);
-        margin-bottom: 20px;
-        font-weight: bold;
-      }
-
-      .hero .highlight {
-        color: var(--accent-color);
-        font-family: var(--font-title);
-      }
-
-      .hero p {
-        font-size: clamp(1.1rem, 2.5vw, 1.5rem);
-        margin-bottom: 30px;
-        max-width: 600px;
-      }
-
-      /* About section */
-      .about-wrapper {
+      /* About Section */
+      .about-content {
         display: flex;
         flex-wrap: wrap;
-        gap: 50px;
-        max-width: 1200px;
+        gap: 48px;
         align-items: center;
-        justify-content: center;
       }
 
-      .profile-img {
-        width: 300px;
-        height: 300px;
-        border-radius: 50px;
-        background: linear-gradient(
-          147deg,
-          var(--card-bg) 0%,
-          var(--card-bg-end) 74%
-        );
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      }
-
-      .about-content {
+      .about-text {
         flex: 1;
         min-width: 300px;
-        text-align: left;
       }
 
-      .about-content h3 {
-        color: var(--secondary-color);
-        font-size: 2.2rem;
-        margin-bottom: 30px;
+      .about-text h3 {
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 24px;
+        color: var(--text-dark);
       }
 
-      .about-content p {
-        font-size: 1.1rem;
-        line-height: 1.8;
-        margin-bottom: 20px;
+      .about-text p {
+        font-size: 18px;
+        color: var(--text-light);
+        margin-bottom: 24px;
+        line-height: 1.7;
       }
 
-      .highlight {
-        color: var(--accent-color);
-        font-weight: bold;
+      .about-highlight {
+        color: var(--sybem-blue);
+        font-weight: 600;
       }
 
-      /* Services section */
-      .services-container {
+      .about-visual {
+        flex: 1;
+        min-width: 300px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .about-card {
         background: linear-gradient(
-          147deg,
-          var(--card-bg) 0%,
-          var(--card-bg-end) 74%
+          135deg,
+          var(--sybem-blue),
+          var(--sybem-blue-dark)
         );
-        border-radius: 20px;
-        padding: 50px;
-        box-shadow: 0px 7px 46px 0px rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        max-width: 1200px;
-        width: 100%;
+        border-radius: 24px;
+        padding: 48px;
+        text-align: center;
+        color: white;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        transform: perspective(1000px) rotateY(-5deg);
+        transition: transform 0.3s ease;
+      }
+
+      .about-card:hover {
+        transform: perspective(1000px) rotateY(0deg) scale(1.05);
+      }
+
+      .about-card img {
+        height: 80px;
+        width: auto;
+        margin-bottom: 16px;
+      }
+
+      .about-card h4 {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      .about-card p {
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      /* Services Section */
+      .services {
+        background: var(--bg-light);
       }
 
       .services-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 30px;
-        margin-top: 40px;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 32px;
       }
 
       .service-card {
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 15px;
-        padding: 25px;
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         transition: all 0.3s ease;
+        border: 1px solid #e5e7eb;
       }
 
       .service-card:hover {
-        border-color: var(--accent-color);
-        transform: translateY(-5px);
+        transform: translateY(-8px);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        border-color: var(--sybem-blue);
       }
 
       .service-icon {
-        width: 50px;
-        height: 50px;
-        background: var(--accent-color);
-        border-radius: 10px;
+        width: 48px;
+        height: 48px;
+        background: var(--sybem-blue);
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-bottom: 15px;
-        color: var(--primary-color);
-        font-size: 1.5rem;
+        color: white;
+        font-size: 24px;
+        margin-bottom: 16px;
       }
 
-      .service-card h4 {
-        color: var(--accent-color);
-        font-size: 1.3rem;
-        margin-bottom: 10px;
+      .service-card h3 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: var(--text-dark);
       }
 
       .service-card p {
-        color: var(--text-color);
+        color: var(--text-light);
         line-height: 1.6;
       }
 
-      /* Partners section */
+      /* Partners Section */
       .partners-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 30px;
-        margin-top: 40px;
-        max-width: 800px;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 32px;
       }
 
       .partner-card {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 15px;
-        padding: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.3s ease;
+        background: white;
+        border-radius: 12px;
+        padding: 32px;
         text-align: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        border: 1px solid #e5e7eb;
       }
 
       .partner-card:hover {
-        border-color: var(--accent-color);
-        background: rgba(255, 255, 255, 0.1);
+        transform: translateY(-5px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+        border-color: var(--sybem-blue);
       }
 
-      .partner-logo {
-        width: 100px;
+      .partner-placeholder {
         height: 60px;
-        background: #333;
+        background: #f3f4f6;
         border-radius: 8px;
-        margin: 0 auto 15px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #fff;
-        font-size: 0.8rem;
-        text-align: center;
+        color: var(--text-light);
+        font-size: 14px;
+        margin-bottom: 16px;
       }
 
-      /* Contact section */
-      .contact-container {
-        max-width: 800px;
-        width: 100%;
+      /* Contact Section */
+      .contact {
+        background: linear-gradient(
+          135deg,
+          var(--sybem-blue),
+          var(--sybem-blue-dark)
+        );
+        color: white;
+      }
+
+      .contact .section-title,
+      .contact .section-subtitle {
+        color: white;
+      }
+
+      .contact .section-subtitle {
+        color: rgba(255, 255, 255, 0.8);
       }
 
       .contact-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 30px;
-        margin-top: 40px;
+        gap: 32px;
+        margin-bottom: 48px;
       }
 
       .contact-card {
-        background: linear-gradient(
-          147deg,
-          var(--card-bg) 0%,
-          var(--card-bg-end) 74%
-        );
-        border-radius: 15px;
-        padding: 25px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 32px;
         text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: all 0.3s ease;
+      }
+
+      .contact-card:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-5px);
       }
 
       .contact-icon {
-        width: 50px;
-        height: 50px;
-        background: var(--accent-color);
-        border-radius: 10px;
+        width: 48px;
+        height: 48px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 15px;
-        color: var(--primary-color);
-        font-size: 1.5rem;
+        color: white;
+        font-size: 24px;
+        margin: 0 auto 16px;
       }
 
-      .contact-card h4 {
-        color: var(--secondary-color);
-        margin-bottom: 15px;
+      .contact-card h3 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 12px;
       }
 
       .contact-card p,
       .contact-card a {
-        color: var(--text-color);
+        color: rgba(255, 255, 255, 0.9);
         text-decoration: none;
-        line-height: 1.6;
+        transition: color 0.2s ease;
       }
 
       .contact-card a:hover {
-        color: var(--accent-color);
+        color: var(--sybem-accent);
       }
 
       .social-links {
         display: flex;
         justify-content: center;
-        gap: 20px;
-        margin-top: 40px;
+        gap: 16px;
       }
 
-      .social-links a {
-        width: 50px;
-        height: 50px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
+      .social-link {
+        width: 48px;
+        height: 48px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: var(--text-color);
-        font-size: 1.5rem;
+        color: rgb(248, 245, 245);
+        font-size: 20px;
         text-decoration: none;
         transition: all 0.3s ease;
       }
 
-      .social-links a:hover {
-        background: var(--accent-color);
-        color: var(--primary-color);
-        transform: translateY(-5px);
+      .social-link:hover {
+        background: var(--sybem-accent);
+        color: var(--sybem-blue-dark);
+        transform: translateY(-3px);
       }
 
       /* Footer */
-      footer {
-        background: linear-gradient(
-          147deg,
-          var(--card-bg) 0%,
-          var(--card-bg-end) 74%
-        );
-        color: var(--text-color);
-        padding: 30px 20px;
+      .footer {
+        background: #111827;
+        color: white;
+        padding: 32px 0;
         text-align: center;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
       }
 
-      /* Animations */
-      .fade-in {
-        opacity: 0;
-        transform: translateY(20px);
-        transition:
-          opacity 0.8s ease-out,
-          transform 0.8s ease-out;
-      }
-
-      .fade-in-visible {
-        opacity: 1;
-        transform: translateY(0);
+      .footer p {
+        color: #9ca3af;
       }
 
       /* Responsive */
@@ -533,25 +654,17 @@
           display: none;
         }
 
-        .menu-btn {
+        .mobile-menu-btn {
           display: flex;
         }
 
-        .mobile-nav.active {
-          display: block;
-        }
-
-        .about-wrapper {
+        .about-content {
           flex-direction: column;
           text-align: center;
         }
 
-        .about-content {
-          text-align: center;
-        }
-
-        .services-container {
-          padding: 30px 20px;
+        .about-card {
+          transform: none;
         }
 
         .services-grid {
@@ -559,58 +672,52 @@
         }
 
         .section {
-          padding: 60px 1rem 30px;
-        }
-
-        .hero h1 {
-          font-size: 2rem;
-        }
-
-        .hero p {
-          font-size: 1.1rem;
+          padding: 60px 0;
         }
       }
 
-      @media (max-width: 480px) {
-        .navbar {
-          padding: 1rem;
-        }
+      /* Progress bar */
+      .scroll-progress {
+        position: fixed;
+        top: 64px;
+        left: 0;
+        width: 0%;
+        height: 3px;
+        background: var(--sybem-accent);
+        z-index: 1000;
+        transition: width 0.1s ease;
+      }
 
-        .hero h1 {
-          font-size: 1.8rem;
-        }
-
-        .comic-button {
-          padding: 12px 24px;
-          font-size: 1rem;
-        }
-
-        .services-container {
-          padding: 20px 15px;
-        }
+      /* Parallax elements */
+      .parallax-element {
+        transition: transform 0.1s linear;
       }
     </style>
   </head>
   <body>
-    <header class="navbar">
+    <div class="scroll-progress" id="scrollProgress"></div>
+
+    <nav class="navbar" id="navbar">
       <div class="nav-container">
-        <a href="{% url 'home' %}" class="navbar-brand">
-          <div class="brand-logo">S</div>
-          SYBEMAcademia
+        <a href="#home" class="logo-container">
+          <img
+            src="https://cdn.builder.io/api/v1/assets/c10a02cb7e094ed88b3a1053b9695649/whatsapp-image-2025-07-05-23.00.02_eebae028-3ff00a?format=webp&width=800"
+            alt="SYBEM Academia Logo"
+            class="logo"
+          />
+          <span class="brand-text">SYBEMAcademia</span>
         </a>
 
-        <nav class="nav-links">
-          <ul>
-            <li><a href="#home">Accueil</a></li>
-            <li><a href="#about">À Propos</a></li>
-            <li><a href="#services">Services</a></li>
-            <li><a href="#partners">Partenaires</a></li>
-            <li><a href="#contact">Contact</a></li>
-          </ul>
+        <div class="nav-links">
+          <a href="#home">Accueil</a>
+          <a href="#about">À Propos</a>
+          <a href="#services">Services</a>
+          <a href="#partners">Partenaires</a>
+          <a href="#contact">Contact</a>
           <a href="{% url 'login' %}" class="login-btn">Se connecter</a>
-        </nav>
+          </div>
 
-        <button class="menu-btn" onclick="toggleMenu()">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">
           <span></span>
           <span></span>
           <span></span>
@@ -618,206 +725,240 @@
       </div>
 
       <div class="mobile-nav" id="mobileNav">
-        <ul>
-          <li><a href="#home" onclick="closeMenu()">Accueil</a></li>
-          <li><a href="#about" onclick="closeMenu()">À Propos</a></li>
-          <li><a href="#services" onclick="closeMenu()">Services</a></li>
-          <li><a href="#partners" onclick="closeMenu()">Partenaires</a></li>
-          <li><a href="#contact" onclick="closeMenu()">Contact</a></li>
-          <li>
-            <a href="{% url 'login' %}" class="login-btn" onclick="closeMenu()"
-              >Se connecter</a
-            >
-          </li>
-        </ul>
+        <a href="#home">Accueil</a>
+        <a href="#about">À Propos</a>
+        <a href="#services">Services</a>
+        <a href="#partners">Partenaires</a>
+        <a href="#contact">Contact</a>
+        <a href="{% url 'login' %}" class="login-btn">Se connecter</a>
       </div>
-    </header>
+    </nav>
 
-    <section id="home" class="section hero fade-in">
-      <h1>
-        Simplifiez et innovez l'éducation avec
-        <span class="highlight">SYBEMAcademia</span> !
-      </h1>
-      <p>Une plateforme moderne et intuitive pour la gestion scolaire.</p>
-      <a href="#about" class="comic-button">Démarrer Gratuitement</a>
-    </section>
-
-    <section id="about" class="section fade-in">
-      <div class="about-wrapper">
-        <div class="profile-img">
-          <div
-            class="brand-logo"
-            style="
-              width: 80px;
-              height: 80px;
-              font-size: 2rem;
-              margin-bottom: 20px;
-            "
-          >
-            S
-          </div>
-          <h4 style="color: var(--accent-color); margin-bottom: 10px">
-            SYBEMAcademia
-          </h4>
-          <p style="color: var(--text-color); font-size: 0.9rem">
-            Innovation Éducative
-          </p>
-        </div>
-
-        <div class="about-content">
-          <h3>À Propos de SYBEMAcademia</h3>
-          <p>
-            SYBEMAcademia est une solution complète dédiée à la
-            <span class="highlight">gestion scolaire innovante</span>. Nous
-            transformons l'expérience éducative grâce à des outils puissants
-            pour les
-            <span class="highlight"
-              >enseignants, les parents et l'administration</span
-            >.
-          </p>
-
-          <p>
-            Notre plateforme est conçue pour
-            <span class="highlight"
-              >simplifier les tâches, améliorer la communication et optimiser le
-              suivi des élèves</span
-            >.
-          </p>
-
-          <p>
-            Nous nous engageons à offrir une technologie avancée, mettant
-            l'accent sur la
-            <span class="highlight"
-              >qualité, l'imagination et la créativité</span
-            >. Avec SYBEMAcademia, l'efficacité administrative rencontre
-            l'excellence pédagogique pour un environnement d'apprentissage
-            enrichi.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section id="services" class="section fade-in">
-      <div class="services-container">
-        <h3
-          style="
-            color: var(--secondary-color);
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-          "
+    <section id="home" class="hero">
+      <div class="hero-bg parallax-element"></div>
+      <div class="hero-content">
+        <h1 class="animate-on-scroll fade-up">
+          Simplifiez et innovez l'éducation avec
+          <span class="highlight">SYBEMAcademia</span> !
+        </h1>
+        <p class="animate-on-scroll fade-up" style="animation-delay: 0.2s">
+          Une plateforme moderne et intuitive pour la gestion scolaire.
+        </p>
+        <a
+          href="#about"
+          class="cta-btn animate-on-scroll scale-in floating"
+          style="animation-delay: 0.4s"
         >
-          Nos Services
-        </h3>
+          Démarrer Gratuitement
+        </a>
+      </div>
+    </section>
+
+    <section id="about" class="section">
+      <div class="container">
+        <div class="about-content">
+          <div class="about-text animate-on-scroll fade-left">
+            <h3>À Propos de SYBEMAcademia</h3>
+            <p>
+              SYBEMAcademia est une solution complète dédiée à la
+              <span class="about-highlight">gestion scolaire innovante</span
+              >. Nous transformons l'expérience éducative grâce à des outils
+              puissants pour les
+              <span class="about-highlight"
+                >enseignants, les parents et l'administration</span
+              >.
+            </p>
+            <p>
+              Notre plateforme est conçue pour
+              <span class="about-highlight"
+                >simplifier les tâches, améliorer la communication et optimiser
+                le suivi des élèves</span
+              >.
+            </p>
+            <p>
+              Nous nous engageons à offrir une technologie avancée, mettant
+              l'accent sur la
+              <span class="about-highlight"
+                >qualité, l'imagination et la créativité</span
+              >. Avec SYBEMAcademia, l'efficacité administrative rencontre
+              l'excellence pédagogique pour un environnement d'apprentissage
+              enrichi.
+            </p>
+          </div>
+          <div class="about-visual animate-on-scroll fade-right">
+            <div class="about-card">
+              <img
+                src="https://cdn.builder.io/api/v1/assets/c10a02cb7e094ed88b3a1053b9695649/whatsapp-image-2025-07-05-23.00.02_eebae028-3ff00a?format=webp&width=800"
+                alt="SYBEM Academia Logo"
+              />
+              <h4>SYBEMAcademia</h4>
+              <p>Innovation Éducative</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="services" class="section services">
+      <div class="container">
+        <h2 class="section-title animate-on-scroll fade-up">Nos Services</h2>
         <p
-          style="
-            color: var(--text-color);
-            font-size: 1.1rem;
-            max-width: 600px;
-            margin: 0 auto;
-          "
+          class="section-subtitle animate-on-scroll fade-up"
+          style="animation-delay: 0.1s"
         >
           Découvrez notre gamme complète de services conçus pour révolutionner
           la gestion éducative.
         </p>
 
         <div class="services-grid">
-          <div class="service-card">
+          <div
+            class="service-card animate-on-scroll scale-in"
+            style="animation-delay: 0.1s"
+          >
             <div class="service-icon">
               <i class="fas fa-graduation-cap"></i>
             </div>
-            <h4>Gestion des Notes & Évaluations</h4>
+            <h3>Gestion des Notes & Évaluations</h3>
             <p>
               Saisie facile des notes, calcul automatique des moyennes, et suivi
               détaillé des performances des élèves.
             </p>
           </div>
 
-          <div class="service-card">
-            <div class="service-icon"><i class="fas fa-user-check"></i></div>
-            <h4>Suivi des Absences & Présences</h4>
+          <div
+            class="service-card animate-on-scroll scale-in"
+            style="animation-delay: 0.2s"
+          >
+            <div class="service-icon">
+              <i class="fas fa-user-check"></i>
+            </div>
+            <h3>Suivi des Absences & Présences</h3>
             <p>
               Enregistrement rapide des présences, alertes en cas d'absence et
               rapports d'assiduité.
             </p>
           </div>
 
-          <div class="service-card">
+          <div
+            class="service-card animate-on-scroll scale-in"
+            style="animation-delay: 0.3s"
+          >
             <div class="service-icon">
               <i class="fas fa-exclamation-triangle"></i>
             </div>
-            <h4>Historique Disciplinaire</h4>
+            <h3>Historique Disciplinaire</h3>
             <p>
               Suivi détaillé des comportements des élèves, enregistrement des
               incidents et des sanctions.
             </p>
           </div>
 
-          <div class="service-card">
-            <div class="service-icon"><i class="fas fa-book-open"></i></div>
-            <h4>Gestion des Devoirs & Tâches</h4>
+          <div
+            class="service-card animate-on-scroll scale-in"
+            style="animation-delay: 0.4s"
+          >
+            <div class="service-icon">
+              <i class="fas fa-book-open"></i>
+            </div>
+            <h3>Gestion des Devoirs & Tâches</h3>
             <p>
               Assignation et suivi des devoirs, soumissions en ligne et
               évaluation facile par les enseignants.
             </p>
           </div>
 
-          <div class="service-card">
-            <div class="service-icon"><i class="fas fa-file-alt"></i></div>
-            <h4>Génération Automatique de Bulletins</h4>
+          <div
+            class="service-card animate-on-scroll scale-in"
+            style="animation-delay: 0.5s"
+          >
+            <div class="service-icon">
+              <i class="fas fa-file-alt"></i>
+            </div>
+            <h3>Génération Automatique de Bulletins</h3>
             <p>
               Création rapide et automatisée de bulletins scolaires
               personnalisables.
             </p>
           </div>
 
-          <div class="service-card">
-            <div class="service-icon"><i class="fas fa-share-alt"></i></div>
-            <h4>Envoi et Partage de Documents</h4>
+          <div
+            class="service-card animate-on-scroll scale-in"
+            style="animation-delay: 0.6s"
+          >
+            <div class="service-icon">
+              <i class="fas fa-share-alt"></i>
+            </div>
+            <h3>Envoi et Partage de Documents</h3>
             <p>
               Plateforme sécurisée pour le partage de cours, circulaires et
               autres documents importants.
             </p>
           </div>
 
-          <div class="service-card">
-            <div class="service-icon"><i class="fas fa-archive"></i></div>
-            <h4>Archivage Sécurisé</h4>
+          <div
+            class="service-card animate-on-scroll scale-in"
+            style="animation-delay: 0.7s"
+          >
+            <div class="service-icon">
+              <i class="fas fa-archive"></i>
+            </div>
+            <h3>Archivage Sécurisé</h3>
             <p>
               Conservation numérique et sécurisée des dossiers d'élèves,
               diplômes et autres archives importantes.
             </p>
           </div>
 
-          <div class="service-card">
-            <div class="service-icon"><i class="fas fa-comments"></i></div>
-            <h4>Communication Enseignant-Parent</h4>
+          <div
+            class="service-card animate-on-scroll scale-in"
+            style="animation-delay: 0.8s"
+          >
+            <div class="service-icon">
+              <i class="fas fa-comments"></i>
+            </div>
+            <h3>Communication Enseignant-Parent</h3>
             <p>
               Plateforme de messagerie intégrée pour une communication fluide et
               transparente.
             </p>
           </div>
 
-          <div class="service-card">
-            <div class="service-icon"><i class="fas fa-calendar-alt"></i></div>
-            <h4>Gestion des Cours & Matières</h4>
+          <div
+            class="service-card animate-on-scroll scale-in"
+            style="animation-delay: 0.9s"
+          >
+            <div class="service-icon">
+              <i class="fas fa-calendar-alt"></i>
+            </div>
+            <h3>Gestion des Cours & Matières</h3>
             <p>
               Organisation et planification des cours, assignation des
               enseignants et des élèves.
             </p>
           </div>
 
-          <div class="service-card">
-            <div class="service-icon"><i class="fas fa-calculator"></i></div>
-            <h4>Module de Comptabilité</h4>
+          <div
+            class="service-card animate-on-scroll scale-in"
+            style="animation-delay: 1s"
+          >
+            <div class="service-icon">
+              <i class="fas fa-calculator"></i>
+            </div>
+            <h3>Module de Comptabilité</h3>
             <p>
               Gestion des frais de scolarité, paiements, et rapports financiers
               pour l'administration.
             </p>
           </div>
 
-          <div class="service-card">
-            <div class="service-icon"><i class="fas fa-chart-bar"></i></div>
-            <h4>Reporting & Statistiques</h4>
+          <div
+            class="service-card animate-on-scroll scale-in"
+            style="animation-delay: 1.1s"
+          >
+            <div class="service-icon">
+              <i class="fas fa-chart-bar"></i>
+            </div>
+            <h3>Reporting & Statistiques</h3>
             <p>
               Tableaux de bord interactifs et rapports personnalisables pour une
               meilleure prise de décision.
@@ -827,165 +968,168 @@
       </div>
     </section>
 
-    <section id="partners" class="section fade-in">
-      <h3
-        style="
-          color: var(--secondary-color);
-          font-size: 2.5rem;
-          margin-bottom: 20px;
-        "
-      >
-        Nos Partenaires
-      </h3>
-      <p
-        style="
-          color: var(--text-color);
-          font-size: 1.1rem;
-          max-width: 600px;
-          margin-bottom: 40px;
-        "
-      >
-        Nous sommes fiers de collaborer avec des organisations qui partagent
-        notre vision pour l'avenir de l'éducation.
-      </p>
+    <section id="partners" class="section">
+      <div class="container">
+        <h2 class="section-title animate-on-scroll fade-up">Nos Partenaires</h2>
+        <p
+          class="section-subtitle animate-on-scroll fade-up"
+          style="animation-delay: 0.1s"
+        >
+          Nous sommes fiers de collaborer avec des organisations qui partagent
+          notre vision pour l'avenir de l'éducation.
+        </p>
 
-      <div class="partners-grid">
-        <div class="partner-card">
-          <div class="partner-logo"><br /></div>
-          <p style="color: var(--text-color); font-size: 0.9rem">
-            
-          </p>
-        </div>
-        <div class="partner-card">
-          <div class="partner-logo"></div>
-          <p style="color: var(--text-color); font-size: 0.9rem"></p>
-        </div>
-        <div class="partner-card">
-          <div class="partner-logo"></div>
-          <p style="color: var(--text-color); font-size: 0.9rem">
-            
-          </p>
-        </div>
-        <div class="partner-card">
-          <div class="partner-logo"><br /></div>
-          <p style="color: var(--text-color); font-size: 0.9rem">
-            
-          </p>
-        </div>
-        <div class="partner-card">
-          <div class="partner-logo"><br /></div>
-          <p style="color: var(--text-color); font-size: 0.9rem">
-            
-          </p>
-        </div>
-        <div class="partner-card">
-          <div class="partner-logo"><br /></div>
-          <p style="color: var(--text-color); font-size: 0.9rem">
-            
-          </p>
+        <div class="partners-grid">
+          <div
+            class="partner-card animate-on-scroll scale-in"
+            style="animation-delay: 0.1s"
+          >
+            <div class="partner-placeholder">Partenaire 1</div>
+          </div>
+          <div
+            class="partner-card animate-on-scroll scale-in"
+            style="animation-delay: 0.2s"
+          >
+            <div class="partner-placeholder">Partenaire 2</div>
+          </div>
+          <div
+            class="partner-card animate-on-scroll scale-in"
+            style="animation-delay: 0.3s"
+          >
+            <div class="partner-placeholder">Partenaire 3</div>
+          </div>
+          <div
+            class="partner-card animate-on-scroll scale-in"
+            style="animation-delay: 0.4s"
+          >
+            <div class="partner-placeholder">Partenaire 4</div>
+          </div>
+          <div
+            class="partner-card animate-on-scroll scale-in"
+            style="animation-delay: 0.5s"
+          >
+            <div class="partner-placeholder">Partenaire 5</div>
+          </div>
+          <div
+            class="partner-card animate-on-scroll scale-in"
+            style="animation-delay: 0.6s"
+          >
+            <div class="partner-placeholder">Partenaire 6</div>
+          </div>
         </div>
       </div>
     </section>
 
-    <section id="contact" class="section fade-in">
-      <div class="contact-container">
-        <h3
-          style="
-            color: var(--secondary-color);
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-          "
-        >
-          Contactez-nous
-        </h3>
+    <section id="contact" class="section contact">
+      <div class="container">
+        <h2 class="section-title animate-on-scroll fade-up">Contactez-nous</h2>
         <p
-          style="
-            color: var(--text-color);
-            font-size: 1.1rem;
-            margin-bottom: 40px;
-          "
+          class="section-subtitle animate-on-scroll fade-up"
+          style="animation-delay: 0.1s"
         >
           Pour toute question ou collaboration, n'hésitez pas à nous contacter :
         </p>
 
         <div class="contact-grid">
-          <div class="contact-card">
-            <div class="contact-icon"><i class="fas fa-phone"></i></div>
-            <h4>Téléphones</h4>
+          <div
+            class="contact-card animate-on-scroll scale-in"
+            style="animation-delay: 0.1s"
+          >
+            <div class="contact-icon">
+              <i class="fas fa-phone"></i>
+            </div>
+            <h3>Téléphones</h3>
             <p>+243978253665</p>
             <p>+243 850 008 795</p>
           </div>
 
-          <div class="contact-card">
-            <div class="contact-icon"><i class="fas fa-envelope"></i></div>
-            <h4>Email</h4>
+          <div
+            class="contact-card animate-on-scroll scale-in"
+            style="animation-delay: 0.2s"
+          >
+            <div class="contact-icon">
+              <i class="fas fa-envelope"></i>
+            </div>
+            <h3>Email</h3>
             <a href="mailto:fortunem.kif@gmail.com">fortunem.kif@gmail.com</a>
           </div>
 
-          <div class="contact-card">
+          <div
+            class="contact-card animate-on-scroll scale-in"
+            style="animation-delay: 0.3s"
+          >
             <div class="contact-icon">
               <i class="fas fa-map-marker-alt"></i>
             </div>
-            <h4>Adresse</h4>
+            <h3>Adresse</h3>
             <p>Goma, République Démocratique du Congo</p>
           </div>
         </div>
 
-        <div class="social-links">
-          <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
-          <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
-          <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
-          <a href="#" aria-label="GitHub"><i class="fab fa-github"></i></a>
+        <div
+          class="social-links animate-on-scroll fade-up"
+          style="animation-delay: 0.4s"
+        >
+          <a href="#" class="social-link">
+            <i class="fab fa-facebook"></i>
+          </a>
+          <a href="#" class="social-link">
+            <i class="fab fa-twitter"></i>
+          </a>
+          <a href="#" class="social-link">
+            <i class="fab fa-linkedin"></i>
+          </a>
+          <a href="#" class="social-link">
+            <i class="fab fa-github"></i>
+          </a>
         </div>
       </div>
     </section>
 
-    <footer>
-      <p>
-        &copy; 2024 SYBEMAcademia
-        <i class="fas fa-rocket" style="color: var(--accent-color)"></i> - Tous
-        droits réservés
-      </p>
+    <footer class="footer">
+      <div class="container">
+        <p>&copy; 2024 SYBEMAcademia - Tous droits réservés</p>
+      </div>
     </footer>
 
     <script>
-      // Menu mobile
-      function toggleMenu() {
-        const mobileNav = document.getElementById("mobileNav");
-        const menuBtn = document.querySelector(".menu-btn");
-
-        mobileNav.classList.toggle("active");
-        menuBtn.classList.toggle("active");
-      }
-
-      function closeMenu() {
-        const mobileNav = document.getElementById("mobileNav");
-        const menuBtn = document.querySelector(".menu-btn");
-
-        mobileNav.classList.remove("active");
-        menuBtn.classList.remove("active");
-      }
-
-      // Animations au scroll
-      const observerOptions = {
-        threshold: 0.1,
-        rootMargin: "0px 0px -50px 0px",
-      };
-
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("fade-in-visible");
-          }
-        });
-      }, observerOptions);
-
-      // Observer toutes les sections
-      document.querySelectorAll(".fade-in").forEach((section) => {
-        observer.observe(section);
+      // Scroll progress bar
+      window.addEventListener("scroll", () => {
+        const scrollProgress = document.getElementById("scrollProgress");
+        const scrollTop = window.pageYOffset;
+        const docHeight = document.body.offsetHeight - window.innerHeight;
+        const scrollPercent = (scrollTop / docHeight) * 100;
+        scrollProgress.style.width = scrollPercent + "%";
       });
 
-      // Smooth scroll pour les liens de navigation
+      // Navbar scroll effect
+      window.addEventListener("scroll", () => {
+        const navbar = document.getElementById("navbar");
+        if (window.pageYOffset > 50) {
+          navbar.classList.add("scrolled");
+        } else {
+          navbar.classList.remove("scrolled");
+        }
+      });
+
+      // Mobile menu toggle
+      const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+      const mobileNav = document.getElementById("mobileNav");
+
+      mobileMenuBtn.addEventListener("click", () => {
+        mobileMenuBtn.classList.toggle("active");
+        mobileNav.classList.toggle("active");
+      });
+
+      // Close mobile menu when clicking on links
+      document.querySelectorAll(".mobile-nav a").forEach((link) => {
+        link.addEventListener("click", () => {
+          mobileMenuBtn.classList.remove("active");
+          mobileNav.classList.remove("active");
+        });
+      });
+
+      // Smooth scroll for anchor links
       document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
         anchor.addEventListener("click", function (e) {
           e.preventDefault();
@@ -996,40 +1140,50 @@
               block: "start",
             });
           }
-          // Fermer le menu mobile si ouvert
-          closeMenu();
         });
       });
 
-      // Fermer le menu mobile en cliquant à l'extérieur
-      document.addEventListener("click", function (e) {
-        const mobileNav = document.getElementById("mobileNav");
-        const menuBtn = document.querySelector(".menu-btn");
-        const navContainer = document.querySelector(".nav-container");
+      // Scroll animations
+      const observerOptions = {
+        threshold: 0.1,
+        rootMargin: "0px 0px -50px 0px",
+      };
 
-        if (
-          !navContainer.contains(e.target) &&
-          mobileNav.classList.contains("active")
-        ) {
-          closeMenu();
-        }
-      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("animated");
 
-      // Animation de rotation pour le menu hamburger
-      document
-        .querySelector(".menu-btn")
-        .addEventListener("click", function () {
-          const spans = this.querySelectorAll("span");
-          if (this.classList.contains("active")) {
-            spans[0].style.transform = "rotate(45deg) translate(5px, 5px)";
-            spans[1].style.opacity = "0";
-            spans[2].style.transform = "rotate(-45deg) translate(7px, -6px)";
-          } else {
-            spans[0].style.transform = "none";
-            spans[1].style.opacity = "1";
-            spans[2].style.transform = "none";
+            // Add specific animation classes based on data attributes or classes
+            if (entry.target.classList.contains("fade-up")) {
+              entry.target.style.animation = "fadeInUp 0.8s ease-out forwards";
+            } else if (entry.target.classList.contains("fade-left")) {
+              entry.target.style.animation =
+                "fadeInLeft 0.8s ease-out forwards";
+            } else if (entry.target.classList.contains("fade-right")) {
+              entry.target.style.animation =
+                "fadeInRight 0.8s ease-out forwards";
+            } else if (entry.target.classList.contains("scale-in")) {
+              entry.target.style.animation = "scaleIn 0.8s ease-out forwards";
+            }
           }
         });
+      }, observerOptions);
+
+      // Observe all elements with animate-on-scroll class
+      document.querySelectorAll(".animate-on-scroll").forEach((element) => {
+        observer.observe(element);
+      });
+
+      // Parallax effect for hero background
+      window.addEventListener("scroll", () => {
+        const parallaxElements = document.querySelectorAll(".parallax-element");
+        parallaxElements.forEach((element) => {
+          const scrollY = window.pageYOffset;
+          const speed = parseFloat(element.dataset.parallaxSpeed || 0.5); // Default speed
+          element.style.transform = `translateY(${scrollY * speed}px)`;
+        });
+      });
     </script>
   </body>
 </html>
