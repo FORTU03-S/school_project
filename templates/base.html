@@ -11,17 +11,59 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     
     <link rel="stylesheet" href="{% static 'css/custom_styles.css' %}"> 
+    <style>
+        /* Styles pour le logo */
+        .navbar-brand .logo {
+            height: 40px; /* Taille fixe pour le logo */
+            width: auto;
+            margin-right: 8px; /* Espacement entre le logo et le texte */
+        }
+
+        /* Texte de la marque pour SYBEM Academia */
+        .navbar-brand .brand-text {
+            color: white; /* Couleur du texte de la marque */
+            font-weight: bold; /* Texte en gras */
+            font-size: 1.5rem; /* Taille du texte */
+            text-decoration: none; /* Pas de soulignement */
+        }
+
+        /* Ajustement de la hauteur de la navbar pour le contenu */
+        .navbar-nav .nav-link {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+
+        /* Style pour les liens de déconnexion pour qu'ils ressemblent aux nav-link */
+        .navbar-nav .btn-link.nav-link {
+            padding-left: var(--bs-navbar-nav-link-padding-x);
+            padding-right: var(--bs-navbar-nav-link-padding-x);
+        }
+        
+        /* Assurez-vous que le conteneur principal a suffisamment d'espace */
+        main.container {
+            min-height: calc(100vh - 120px); /* Ajustez cette valeur si votre header/footer sont plus grands */
+        }
+
+    </style>
 
     {% block extra_head %}{% endblock %} {# Pour ajouter du CSS/JS/meta spécifique à une page fille #}
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100"> {# Utilise flexbox pour coller le footer en bas #}
     <header>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm"> {# Ajout d'une ombre #}
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
             <div class="container-fluid">
-                <a class="navbar-brand fw-bold" href="{% url 'profiles:home' %}">SYBEM Academia</a> {# Rendu du logo plus visible #}
+                {# Nouveau bloc pour le logo et le texte de la marque #}
+                <a class="navbar-brand d-flex align-items-center" href="{% url 'profiles:home' %}">
+                    <img src="https://cdn.builder.io/api/v1/assets/c10a02cb7e094ed88b3a1053b9695649/whatsapp-image-2025-07-05-23.00.02_eebae028-3ff00a?format=webp&width=800"
+                         alt="SYBEM Academia Logo"
+                         class="logo">
+                    <span class="brand-text d-none d-sm-block"></span> {# Masque sur les très petits écrans #}
+                </a>
+                
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
+                
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ms-auto">
                         {% if user.is_authenticated %}
@@ -39,7 +81,6 @@
                                 <li class="nav-item">
                                     <a class="nav-link" href="{% url 'profiles:parent_notifications' %}">
                                         <i class="fas fa-bell me-1"></i> Notifications
-                                        {# Assurez-vous que 'unread_notifications_count' est passé dans le contexte ou est un context processor #}
                                         {% if unread_notifications_count %}
                                             <span class="badge bg-warning text-dark ms-1">{{ unread_notifications_count }}</span>
                                         {% endif %}
@@ -82,9 +123,9 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'profiles:login' %}"><i class="fas fa-sign-in-alt me-1"></i> Connexion</a>
                             </li>
-                            {# <li class="nav-item">
-                                <a class="nav-link" href="{% url 'profiles:register_parent' %}"><i class="fas fa-user-plus me-1"></i> Inscription Parent</a>
-                            </li> #}
+                            <li class="nav-item">
+                                {# <a class="nav-link" href="{% url 'profiles:register_parent' %}"><i class="fas fa-user-plus me-1"></i> Inscription Parent</a>#}
+                            </li> 
                         {% endif %}
                     </ul>
                 </div>
@@ -92,7 +133,7 @@
         </nav>
     </header>
 
-    <main class="container mt-4 mb-5"> {# Ajout de marge en bas pour le footer #}
+    <main class="container mt-4 mb-5 flex-grow-1"> {# Ajout de flex-grow-1 pour pousser le footer #}
         {# Messages Django (success, error, info, warning) #}
         {% if messages %}
             {% for message in messages %}
@@ -106,7 +147,7 @@
         {% block content %}{% endblock %} {# Le contenu spécifique à chaque page sera injecté ici #}
     </main>
 
-    <footer class="mt-auto p-3 bg-light text-center text-muted border-top"> {# mt-auto pour coller au bas, border-top pour séparation #}
+    <footer class="mt-auto p-3 bg-light text-center text-muted border-top">
         <div class="container">
             <p class="mb-0">&copy; 2025 SYBEM Academia. Tous droits réservés.</p>
             {# Ajoutez d'autres liens de pied de page si nécessaire #}
