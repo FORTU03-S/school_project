@@ -9,7 +9,7 @@
     <div class="container mt-5 mb-5">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb bg-light p-2 rounded glass-card">
-                <li class="breadcrumb-item"><a href="{% url 'profiles:parent_dashboard' %}" class="text-decoration-none">Tableau de Bord Parent</a></li>
+               {# <li class="breadcrumb-item"><a href="{% url 'profiles:parent_dashboard' %}" class="text-decoration-none">Tableau de Bord Parent</a></li>#}
                 <li class="breadcrumb-item active" aria-current="page">Profil de {{ child.full_name }}</li>
             </ol>
         </nav>
@@ -279,9 +279,9 @@
         </div> {# Fin card shadow #}
 
         <div class="text-center mt-5 mb-5">
-            <a href="{% url 'profiles:parent_dashboard' %}" class="btn btn-secondary btn-lg shadow-sm">
-                <i class="fas fa-arrow-left me-2"></i> Retour au Tableau de Bord
-            </a>
+            {#<a href="{% url 'profiles:parent_my_children_list' %}" class="btn btn-secondary btn-lg shadow-sm">#}
+               {# <i class="fas fa-arrow-left me-2"></i> Retour au Tableau de Bord#}
+            {#</a>#}
         </div>
     </div> {# Fin container #}
 {% endblock content %}

@@ -319,7 +319,7 @@ class Notification(models.Model):
         related_name='sent_notifications', 
         verbose_name="Expéditeur"
     )
-    subject = models.CharField(max_length=255, verbose_name="Sujet", blank=True, null=True)
+    subject = models.CharField(max_length=255, verbose_name="Sujet")
     message = models.TextField(verbose_name="Message")
     
     NOTIFICATION_TYPE_CHOICES = [

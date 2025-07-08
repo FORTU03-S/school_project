@@ -1,5 +1,7 @@
 # profiles/views.py
 from django.db import models, IntegrityError
+import logging 
+logger = logging.getLogger(__name__)
 #from .chart_generator import ChartGenerator
 from datetime import datetime
 #from profiles.chart_generator import ChartGenerator
@@ -181,16 +183,7 @@ def home_view(request):
     }
     return render(request, 'home.html', context) # Assurez-vous que 'home.html' est le bon chemin
 
-@login_required
-@user_passes_test(is_parent, login_url='/login/')
-def parent_dashboard_view(request):
-    children = request.user.children.all()
 
-    context = {
-        'children': children,
-        'title': "Tableau de Bord Parent"
-    }
-    return render(request, 'profiles/parent_dashboard.html', context)
 
 @login_required
 @user_passes_test(is_parent, login_url='/login/')
@@ -200,7 +193,7 @@ def parent_child_detail_view(request, child_id):
     # CORRECTION: Vérification de sécurité: S'assurer que cet enfant appartient bien au parent connecté
     if not child.parents.filter(id=request.user.id).exists():
         messages.error(request, "Vous n'êtes pas autorisé à consulter le profil de cet enfant.")
-        return redirect('profiles:parent_dashboard')
+        return redirect('profiles:parent_my_children_list.html')
 
     # 1. Informations pour les "Notes et Bulletins"
     grades = Grade.objects.filter(enrollment__student=child).select_related(
@@ -1573,28 +1566,44 @@ def direction_send_message_to_single_parent(request, student_id):
 
 
 # --- Vue pour envoyer un message aux parents de toutes les classes ---
+
 @login_required
 @user_passes_test(is_direction)
 def direction_send_message_to_all_parents(request):
     if request.method == 'POST':
         form = NotificationForm(request.POST)
         if form.is_valid():
+            # C'est ici que vous placez la première ligne de log
+            logger.info(f"Formulaire valide. Utilisateur Direction : {request.user.email} (ID: {request.user.id})")
+
             # Récupérer tous les utilisateurs de type PARENT
             all_parents = CustomUser.objects.filter(user_type=UserRole.PARENT)
             
             if not all_parents.exists():
                 messages.warning(request, "Aucun parent trouvé dans le système.")
+                logger.warning("Aucun parent trouvé dans le système pour l'envoi de notification.") # Ajoutez aussi un log ici
                 return redirect('profiles:direction_send_notification')
 
             for parent_user in all_parents:
-                notification = form.save(commit=False)
+                notification = form.save(commit=False) 
                 notification.sender = request.user
                 notification.recipient = parent_user # Envoie à chaque parent individuellement
                 notification.recipient_role = UserRole.PARENT
-                notification.save()
+                
+                # C'est ici que vous placez la deuxième ligne de log, juste avant la sauvegarde
+                logger.info(f"Préparation de la notification pour le parent : {parent_user.email} (ID: {parent_user.id}). Expéditeur : {request.user.email} (ID: {request.user.id}). Sujet : {notification.subject[:50]}...")
+                
+                try:
+                    notification.save()
+                    logger.info(f"Notification sauvegardée avec succès (ID: {notification.id}) pour {parent_user.email}.")
+                except Exception as e:
+                    logger.error(f"ÉCHEC DE SAUVEGARDE de la notification pour {parent_user.email} : {e}", exc_info=True)
             
             messages.success(request, "Message envoyé à tous les parents.")
+            logger.info("Processus d'envoi de message terminé pour tous les parents.") # Et un log de fin de processus
             return redirect('profiles:direction_send_notification')
+        else:
+            logger.warning(f"Le formulaire de notification est invalide. Erreurs : {form.errors.as_json()}") # Log si le formulaire est invalide
     else:
         form = NotificationForm()
 
@@ -1976,33 +1985,6 @@ def create_or_update_student(request, student_id=None):
  #   return user.is_authenticated and (user.user_type == 'SCHOOL_ADMIN' or user.user_type == 'DIRECTOR')
 
 
-#@login_required
-#@user_passes_test(is_school_admin_or_director) # Seuls les admins/directeurs peuvent voir le tableau de bord
-def dashboard_charts_view(request):
-    user_school = request.user.school # Supposons que votre CustomUser a un lien vers l'école
-    
-    # Récupérer la période académique active ou la plus récente
-    current_academic_period = AcademicPeriod.objects.filter(school=user_school).order_by('-start_date').first()
-
-    charts = {}
-    
-    if user_school:
-        charts['students_by_class'] = ChartGenerator.generate_students_by_class_chart(user_school)
-        
-        if current_academic_period:
-            charts['grades_distribution'] = ChartGenerator.generate_grades_distribution_chart(user_school, current_academic_period)
-            charts['attendance_rate'] = ChartGenerator.generate_attendance_rate_chart(user_school, current_academic_period)
-            charts['payment_status'] = ChartGenerator.generate_payment_status_chart(user_school, current_academic_period)
-            charts['teacher_performance'] = ChartGenerator.generate_teacher_performance_chart(user_school, current_academic_period)
-            charts['class_comparison'] = ChartGenerator.generate_class_comparison_chart(user_school, current_academic_period)
-        
-        charts['monthly_payments'] = ChartGenerator.generate_monthly_payments_chart(user_school, datetime.now().year)
-    
-    context = {
-        'charts': charts,
-        'school_name': user_school.name if user_school else "Votre École"
-    }
-    return render(request, 'profiles/dashboard_charts.html', context)
 #def is_school_admin_or_director(user):
  #   return user.is_authenticated and (user.user_type == 'SCHOOL_ADMIN' or user.user_type == 'DIRECTOR')
 #@login_required

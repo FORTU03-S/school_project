@@ -7,7 +7,7 @@
 
 {% block content %}
     <div class="container py-4">
-        <h1 class="mb-4 text-center text-primary">Bonjour {{ user.first_name }} !</h1>
+        <h1 class="mb-4 text-center text-primary">Bonjour cher parent, bienvenue {{ user.first_name }} !</h1>
         <p class="lead mb-5 text-center text-muted">Voici la liste de vos enfants inscrits dans l'école. Cliquez sur leur profil pour accéder à toutes les informations.</p>
 
         {% if my_children %}
@@ -28,7 +28,7 @@
                                     <p class="card-text text-muted"><small>Né(e) le: {{ child.date_of_birth|date:"d M Y" }}</small></p>
                                 {% endif %}
                                 <div class="mt-auto pt-3 border-top w-100 text-center">
-                                   {# <a href="{% url 'student_child_detail' child.id %}" class="btn btn-primary btn-lg px-4">#}
+                                    <a href="{% url 'profiles:parent_child_detail' child.id %}" class="btn btn-primary btn-lg px-4">
                                         <i class="fas fa-user-circle me-2"></i> Voir le Profil
                                     </a>
                                 </div>
@@ -37,12 +37,7 @@
                     </div>
                 {% endfor %}
             </div>
-            <div class="text-center mt-5">
-                {# Si vous voulez un lien vers le tableau de bord "complet" #}
-                <a href="{% url 'profiles:parent_dashboard' %}" class="btn btn-outline-primary btn-lg">
-                    <i class="fas fa-chart-bar me-2"></i> Accéder au Tableau de Bord Global
-                </a>
-            </div>
+            
         {% else %}
             <div class="alert alert-info text-center py-5 shadow-sm rounded-3" role="alert">
                 <h4 class="alert-heading display-5 mb-4">Aucun enfant trouvé !</h4>
