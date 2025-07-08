@@ -12,12 +12,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-votresecretkeyici!genereznouvelle' # REMPLACEZ CECI PAR UNE VRAIE CLÉ EN PROD !
-
+ # REMPLACEZ CECI PAR UNE VRAIE CLÉ EN PROD !
+SECRET_KEY = os.environ.get('SECRET_KEY', 'une_cle_tres_longue_et_aleatoire_pour_le_dev_seulement')
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True # Mettez à False en production
+DEBUG = False # Mettez à False en production
 
-#ALLOWED_HOSTS = ['http://fortumanagement.onrender.com'] # Laissez vide pour le développement, ajoutez les noms de domaine en production (ex: ['mon-site.com', 'www.mon-site.com'])
+ALLOWED_HOSTS = ['http://fortumanagement.onrender.com'] # Laissez vide pour le développement, ajoutez les noms de domaine en production (ex: ['mon-site.com', 'www.mon-site.com'])
 import os
 
 # ... vos autres configurations ...
@@ -159,7 +159,18 @@ USE_I18N = True # Active le système de traduction
 
 USE_TZ = True # Active la prise en charge des fuseaux horaires (recommandé)
 
-
+# Exemple simplifié pour le niveau de log crucial
+LOGGING = {
+    # ... (autres parties de la configuration) ...
+    'loggers': {
+        # ...
+        'profiles': { # Votre application 'profiles'
+            'handlers': ['console', 'file_debug'], # Assurez-vous que 'file_debug' est listé
+            'level': 'DEBUG', # C'est important pour voir les logger.debug
+            'propagate': False,
+        },
+    }
+}
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 

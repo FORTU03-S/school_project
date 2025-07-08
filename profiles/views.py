@@ -1316,32 +1316,30 @@ def teacher_delete_evaluation(request, evaluation_id):
 @login_required
 @user_passes_test(is_parent, login_url='/login/')
 def parent_notifications_view(request):
-    # CORRECTION: Notification.objects.filter(recipient=request.user) sera suffisant si toutes les notifications pertinentes
-    # (directes et liées aux enfants) sont envoyées avec le parent comme `recipient`.
-    # Si les notifications sont créées avec `recipient_student` ou `recipient_class`, la logique ci-dessous doit être affinée
-    # pour récupérer toutes les notifications destinées à l'utilisateur parent ou à ses enfants.
+    # Log 1: Quand un parent accède à la vue
+    logger.info(f"Le parent {request.user.email} (ID: {request.user.id}) accède à ses notifications.")
 
-    # Approche 1: Si toutes les notifications (directes et indirectes via enfant) ont le parent comme 'recipient'
+    # Récupération des notifications
+    # Votre approche actuelle (Approche 1) est la plus simple et la plus directe.
+    # Si toutes les notifications destinées au parent (directes ou via enfant) ont le parent comme 'recipient',
+    # alors cette ligne est correcte.
     all_notifications = Notification.objects.filter(recipient=request.user).order_by('-timestamp')
 
-    # Approche 2 (plus complexe si notifications sont liées à l'enfant/classe directement, PAS au parent comme recipient)
-    # children_of_parent = request.user.children.all()
-    # q_objects = Q(recipient=request.user) # Notifications envoyées directement au parent
-    # for child in children_of_parent:
-    # if hasattr(child, 'user_account') and child.user_account: # Si l'enfant a un compte utilisateur lié
-    # q_objects |= Q(recipient=child.user_account)
-    # # Si Notification a un champ ForeignKey vers Student ou Classe:
-    # # q_objects |= Q(recipient_student=child)
-    # # if child.current_classe:
-    # # q_objects |= Q(recipient_class=child.current_classe)
-    # all_notifications = Notification.objects.filter(q_objects).distinct().order_by('-timestamp')
+    # Log 2: Nombre de notifications récupérées
+    logger.info(f"Le parent {request.user.email} a récupéré {all_notifications.count()} notifications depuis la base de données.")
 
+    # Log 3: Inspectez les détails des premières notifications récupérées
+    # Utilisez logger.debug pour des informations très détaillées, elles n'apparaîtront que si le niveau de log est DEBUG
+    for i, n in enumerate(all_notifications[:5]): # Limitez à 5 pour ne pas surcharger les logs
+        sender_info = n.sender.email if n.sender else 'None'
+        recipient_info = n.recipient.email if n.recipient else 'None'
+        logger.debug(f"Notification {i+1}: ID={n.id}, Sujet='{n.subject[:30]}', Expéditeur={sender_info}, Destinataire={recipient_info}, Lue={n.is_read}")
 
     context = {
         'notifications': all_notifications,
         'title': "Vos Notifications"
     }
-    return render(request, 'profiles/parent_notifications.html', context)
+    return render(request, 'profiles/parent_notifications.html', context) # Assurez-vous que le nom du template est correct
 
 
 
@@ -1983,6 +1981,7 @@ def create_or_update_student(request, student_id=None):
 # Fonction pour vérifier si l'utilisateur est un administrateur d'école ou un directeur
 #def is_school_admin_or_director(user):
  #   return user.is_authenticated and (user.user_type == 'SCHOOL_ADMIN' or user.user_type == 'DIRECTOR')
+
 
 
 #def is_school_admin_or_director(user):
