@@ -19,7 +19,7 @@ DEBUG = False # Mettez à False en production
 
 #ALLOWED_HOSTS = ['http://fortumanagement.onrender.com'] # Laissez vide pour le développement, ajoutez les noms de domaine en production (ex: ['mon-site.com', 'www.mon-site.com'])
 
-# ... vos autres configurations ...
+
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'fortumanagement.onrender.com').split(',')
 
