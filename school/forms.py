@@ -1,35 +1,12 @@
 # school_project/school/forms.py
-
+print("DEBUG: Chargement de school/forms.py")
 from django import forms
-from .models import  Classe, Course, Enrollment, Grade, Attendance, AcademicPeriod, Evaluation, Payment
+from .models import  Classe, Course, Enrollment, Grade, Attendance, AcademicPeriod, Evaluation, Payment, FeeType, TuitionFee
 from profiles.models import CustomUser, UserRole, Student, Notification # Important: Assurez-vous que UserRole est importé ici
-
+from django.contrib.auth import get_user_model
 
 # Formulaire pour ajouter/modifier un élève
-class StudentForm(forms.ModelForm):
-    # Si l'enseignant ajoute un élève, il n'a pas besoin de choisir le user associé immédiatement
-    # Ni de choisir le parent directement, qui sera géré par le parent lui-même ou l'admin
-    # L'enseignant doit pouvoir choisir la classe actuelle.
-    current_classe = forms.ModelChoiceField(
-        queryset=Classe.objects.all(),
-        required=True,
-        empty_label="Sélectionner une classe",
-        label="Classe Actuelle"
-    )
 
-    class Meta:
-        model = Student
-        fields = ['first_name', 'last_name', 'date_of_birth', 'gender', 'student_id_code', 'current_classe']
-        widgets = {
-            'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
-        }
-        labels = {
-            'first_name': 'Prénom',
-            'last_name': 'Nom',
-            'date_of_birth': 'Date de Naissance',
-            'gender': 'Sexe',
-            'student_id_code': 'Identifiant Élève (optionnel)',
-        }
 
 # Formulaire pour la saisie des notes
 class GradeForm(forms.ModelForm):
@@ -182,14 +159,14 @@ class AttendanceForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         school = kwargs.pop('school', None)
-        super()._init_(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if school:
             # Filtrer les inscriptions (Enrollment) par les cours associés à l'école de l'utilisateur
             self.fields['enrollment'].queryset = Enrollment.objects.filter(
                 course_classe_school=school
             ).select_related('student', 'course').order_by(
-                'student_last_name', 'studentfirst_name', 'course_name'
+                'student__last_name', 'student__first_name', 'course__name'
             )
         else:
             self.fields['enrollment'].queryset = Enrollment.objects.none()
@@ -209,40 +186,63 @@ class AttendanceForm(forms.ModelForm):
         return cleaned_data    
     
  
-            
+CustomUser = get_user_model()
+
+# Formulaire pour enregistrer un nouveau paiement
 class PaymentForm(forms.ModelForm):
     class Meta:
         model = Payment
-        fields = ['student', 'academic_period', 'amount_paid', 'payment_date', 'payment_status', 'transaction_id']
-        labels = {
-            'student': 'Élève',
-            'academic_period': 'Période Académique',
-            'amount_paid': 'Montant Payé',
-            'payment_date': 'Date de Paiement',
-            'payment_status': 'Description du Paiement',
-            'transaction_id': 'ID de Transaction',
-        }
+        fields = ['student', 'fee_type', 'amount_paid', 'payment_date', 'academic_period', 'transaction_id']
         widgets = {
             'payment_date': forms.DateInput(attrs={'type': 'date'}),
-            'description': forms.Textarea(attrs={'rows': 3}),
         }
-
+    
     def __init__(self, *args, **kwargs):
-        school = kwargs.pop('school', None)
+        print(f"DEBUG: [PaymentForm.__init__] Début, kwargs: {kwargs}")
+
+        # Retirer 'user' en premier
+        user = kwargs.pop('user', None)
+        print(f"DEBUG: [PaymentForm.__init__] Après pop 'user', kwargs: {kwargs}")
+
+        # Retirer 'school_id'
+        self.school_id = kwargs.pop('school_id', None)
+        print(f"DEBUG: [PaymentForm.__init__] Après pop 'school_id', kwargs: {kwargs}")
+
+        # Appeler le __init__ de la classe parente
+        super().__init__(*args, **kwargs)
+        print("DEBUG: [PaymentForm.__init__] super().__init__ appelé avec succès.")
+
+        if self.school_id:
+            print(f"DEBUG: [PaymentForm.__init__] Filtrage des querysets pour school_id: {self.school_id}")
+            self.fields['student'].queryset = Student.objects.filter(school=self.school_id)
+            self.fields['fee_type'].queryset = FeeType.objects.filter(school=self.school_id) | FeeType.objects.filter(school__isnull=True)
+            self.fields['academic_period'].queryset = AcademicPeriod.objects.filter(school=self.school_id) | AcademicPeriod.objects.filter(school__isnull=True)
+
+        if user:
+            pass # Gérer l'utilisateur si nécessaire
+
+
+# Formulaire pour définir les frais de scolarité
+class TuitionFeeForm(forms.ModelForm):
+    class Meta:
+        model = TuitionFee
+        fields = ['fee_type', 'classe', 'academic_period', 'amount']
+    
+    def __init__(self, *args, **kwargs):
+        self.school_id = kwargs.pop('school_id', None)
         super().__init__(*args, **kwargs)
 
-        if school:
-            # Filtrer les élèves par l'école de l'utilisateur
-            self.fields['student'].queryset = Student.objects.filter(
-                school=school
-            ).order_by('last_name', 'first_name')
-            
-            # Filtrer les périodes académiques par l'école de l'utilisateur
-            self.fields['academic_period'].queryset = AcademicPeriod.objects.filter(
-                school=school
-            ).order_by('-start_date') # Du plus récent au plus ancien
-        else:
-            self.fields['student'].queryset = Student.objects.none()
-            self.fields['academic_period'].queryset = AcademicPeriod.objects.none() 
-            
-                       
+        if self.school_id:
+            self.fields['fee_type'].queryset = FeeType.objects.filter(school=self.school_id) | FeeType.objects.filter(school__isnull=True)
+            self.fields['classe'].queryset = Classe.objects.filter(school=self.school_id)
+            self.fields['academic_period'].queryset = AcademicPeriod.objects.filter(school=self.school_id) | AcademicPeriod.objects.filter(school__isnull=True)
+
+# Formulaire pour créer un nouveau type de frais (intitulé)
+class FeeTypeForm(forms.ModelForm):
+    class Meta:
+        model = FeeType
+        fields = ['name', 'description', 'is_active']
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Vous pouvez ajouter ici des validations spécifiques si nécessaire

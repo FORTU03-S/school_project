@@ -30,7 +30,6 @@ class CustomAuthenticationForm(forms.Form):
     def get_user(self):
         return self.user_cache
 
-
 class ParentCreationForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput, label="Mot de passe du Parent")
     password_confirm = forms.CharField(widget=forms.PasswordInput, label="Confirmer le mot de passe")
@@ -45,6 +44,7 @@ class ParentCreationForm(forms.ModelForm):
             'phone_number': "Téléphone du Parent",
             'address': "Adresse du Parent",
         }
+
 
     def clean(self):
         cleaned_data = super().clean()
@@ -145,15 +145,15 @@ class StudentForm(forms.ModelForm):
         fields = [
             'first_name', 'last_name', 'middle_name',
             'date_of_birth', 'gender',
-            'address', 'phone_number', 'email',
+            'address', 'phone_number', # 'email',
             'profile_picture',
             'student_id_code', 
             'school', 'current_classe',
             'is_active', 'enrollment_date',
         ]
-        labels = {
-            'email': "Adresse Email de l'élève",
-        }
+        #labels = {
+         #   'email': "Adresse Email de l'élève",
+        #}
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'enrollment_date': forms.DateInput(attrs={'type': 'date'}),

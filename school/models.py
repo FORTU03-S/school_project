@@ -3,6 +3,10 @@
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.db.models import Sum, F
+import uuid
+from profiles.models import Student 
 
 # --- Nouveau Modèle : School ---
 class School(models.Model):
@@ -419,48 +423,6 @@ class Attendance(models.Model):
 
 
 # --- Modèle Payment ---
-class Payment(models.Model):
-    """
-    Enregistre les paiements effectués par les élèves.
-    """
-    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='payments_made', verbose_name="École")
-    student = models.ForeignKey('profiles.Student', on_delete=models.CASCADE, related_name='payments', verbose_name="Élève")
-    academic_period = models.ForeignKey(
-        AcademicPeriod,
-        on_delete=models.CASCADE,
-        related_name='payments',
-        help_text="Période académique concernée par ce paiement.",
-        verbose_name="Période Académique"
-    )
-    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant payé")
-    payment_date = models.DateField(verbose_name="Date de paiement")
-    payment_status_choices = [
-        ('FULL', 'Totalement Réglé'),
-        ('PARTIAL', 'Partiellement Réglé'),
-        ('DUE', 'Dû / En Attente'),
-        ('OVERDUE', 'En Retard'),
-    ]
-    payment_status = models.CharField(max_length=50, choices=payment_status_choices, default='DUE', verbose_name="Statut du paiement")
-    recorded_by = models.ForeignKey(
-        'profiles.CustomUser',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='payments_recorded',
-        limit_choices_to={'user_type': 'ACCOUNTANT'},
-        verbose_name="Enregistré par"
-    )
-    transaction_id = models.CharField(max_length=100, unique=True, blank=True, null=True, help_text="Numéro de transaction ou référence du paiement.", verbose_name="ID Transaction")
-
-    def __str__(self):
-        student_name = f"{self.student.first_name} {self.student.last_name}" if self.student else "Élève Inconnu"
-        academic_period_name = self.academic_period.name if self.academic_period else "Période Inconnue"
-        return f"Paiement de {self.amount_paid} pour {student_name} ({academic_period_name})"
-
-    class Meta:
-        verbose_name = "Paiement"
-        verbose_name_plural = "Paiements"
-        ordering = ['-payment_date', 'student__last_name']
 
 
 # --- Modèle ReportCard ---
@@ -551,39 +513,77 @@ class DisciplinaryRecord(models.Model):
         return f"Dossier pour {self.student.full_name} le {self.incident_date.strftime('%Y-%m-%d')}"
 
 
-# --- Modèle TuitionFee ---
-class TuitionFee(models.Model):
-    """
-    Définit les frais de scolarité pour une classe spécifique et une période académique donnée.
-    """
-    classe = models.ForeignKey(
-        'Classe',
-        on_delete=models.CASCADE,
-        related_name='tuition_fees',
-        verbose_name="Classe"
-    )
-    academic_period = models.ForeignKey(
-        'AcademicPeriod',
-        on_delete=models.CASCADE,
-        related_name='tuition_fees',
-        verbose_name="Période Académique"
-    )
-    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant des frais")
-    date_set = models.DateField(auto_now_add=True, verbose_name="Date de définition")
-    set_by = models.ForeignKey(
-        'profiles.CustomUser',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        limit_choices_to={'user_type__in': ['ADMIN', 'ACCOUNTANT', 'DIRECTION']},
-        verbose_name="Défini par"
+# --- Modèle TuitioneFee ---
+
+
+class FeeType(models.Model):
+    name = models.CharField(max_length=100, unique=True, verbose_name="Intitulé du Frais")
+    description = models.TextField(blank=True, verbose_name="Description")
+    is_active = models.BooleanField(default=True, verbose_name="Est Actif")
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE, # Ou models.SET_NULL, selon votre logique
+        null=True, blank=True, # Rendez-le optionnel si certains FeeTypes sont "globaux"
+        verbose_name="École Associée"
     )
 
     class Meta:
-        unique_together = ('classe', 'academic_period')
-        verbose_name = "Frais de Scolarité"
-        verbose_name_plural = "Frais de Scolarité"
-        ordering = ['-academic_period', 'classe__name']
+        verbose_name = "Type de Frais"
+        verbose_name_plural = "Types de Frais"
 
     def __str__(self):
-        return f"{self.amount} $ pour {self.classe.name} en {self.academic_period.name}"
+        return self.name
+CustomUser = get_user_model()
+# --- Maintenant, définissez TuitionFee (qui utilise FeeType) ---
+class TuitionFee(models.Model):
+    fee_type = models.ForeignKey(FeeType, on_delete=models.CASCADE, verbose_name="Type de Frais")
+    classe = models.ForeignKey(Classe, on_delete=models.CASCADE, verbose_name="Classe")
+    academic_period = models.ForeignKey(AcademicPeriod, on_delete=models.CASCADE, verbose_name="Période Académique")
+    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant")
+    date_set = models.DateTimeField(auto_now_add=True, verbose_name="Date de Définition")
+    set_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Défini par")
+
+    class Meta:
+        unique_together = ('fee_type', 'classe', 'academic_period')
+        verbose_name = "Frais de Scolarité Défini"
+        verbose_name_plural = "Frais de Scolarité Définis"
+
+    def __str__(self):
+        return f"{self.fee_type.name} - {self.classe.name} ({self.academic_period.name}): {self.amount}$"
+
+# --- Et enfin Payment (qui utilise également FeeType) ---
+class Payment(models.Model):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, verbose_name="Élève")
+    fee_type = models.ForeignKey(FeeType, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Type de Frais Payé")
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant Payé")
+    payment_date = models.DateField(verbose_name="Date de Paiement")
+    PAYMENT_STATUS_CHOICES = [
+        ('PENDING', 'En attente'),
+        ('COMPLETED', 'Complet'),
+        ('PARTIAL', 'Partiel'),
+        ('OVERPAID', 'Surpayé'),
+    ]
+    payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default='COMPLETED', verbose_name="Statut du Paiement")
+    transaction_id = models.CharField(max_length=255, blank=True, null=True, verbose_name="ID Transaction")
+    academic_period = models.ForeignKey(AcademicPeriod, on_delete=models.CASCADE, verbose_name="Période Académique")
+    recorded_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Enregistré par")
+    
+    receipt_number = models.CharField(max_length=50, unique=True, blank=True, null=True, verbose_name="Numéro de Reçu")
+    receipt_file = models.FileField(upload_to='receipts/', blank=True, null=True, verbose_name="Fichier Reçu PDF")
+
+    class Meta:
+        verbose_name = "Paiement"
+        verbose_name_plural = "Paiements"
+        ordering = ['-payment_date', 'student__last_name', 'student__first_name', 'fee_type__name']
+
+    def save(self, *args, **kwargs):
+        if not self.receipt_number:
+            self.receipt_number = str(uuid.uuid4()).replace('-', '')[:15].upper()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Paiement de {self.amount_paid}$ par {self.student.full_name} pour {self.fee_type.name if self.fee_type else 'Frais Inconnu'}"
+
+# --- Si Notification est également dans school/models.py, assurez-vous qu'il est aussi après CustomUser etc. ---
+# Si Notification est dans profiles/models.py, assurez-vous qu'il importe FeeType si nécessaire.
+# ... (votre modèle Notification) ...

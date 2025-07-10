@@ -15,7 +15,7 @@ from datetime import date
 from .models import (
     AcademicPeriod, Course, Enrollment, Grade, Evaluation# Assurez-vous que EvaluationType est déjà géré via Evaluation.evaluation_type.choices
 )
-from .forms import AcademicPeriodForm # Assurez-vous que ce formulaire est défini dans school/forms.py
+from .forms import AcademicPeriodForm, PaymentForm # Assurez-vous que ce formulaire est défini dans school/forms.py
 # Assurez-vous d'importer votre modèle CustomUser et UserRole depuis profiles
 # Si Student est dans profiles.models, importez-le aussi ici si vous en avez besoin.
 from profiles.models import CustomUser, UserRole, Student as ProfileStudent, Classe, School as User
@@ -1802,3 +1802,4 @@ def student_payments(request, student_pk):
     return render(request, 'school/student_payments.html', context)
 
 # ... (vos autres vues) ... 
+

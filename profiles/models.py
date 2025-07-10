@@ -10,6 +10,7 @@ from django.conf import settings
 import string
 import random
 import logging
+#from school.models import AcademicPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,12 @@ class Student(models.Model):
 
     is_active = models.BooleanField(default=True, verbose_name="Actif")
     enrollment_date = models.DateField(default=timezone.now, verbose_name="Date d'inscription")
+    academic_period = models.ForeignKey(
+        'school.AcademicPeriod',
+        on_delete=models.SET_NULL, # Ou models.CASCADE, selon votre logique
+        null=True, blank=True, # L'étudiant n'a pas forcément une période académique assignée au départ
+        verbose_name="Période Académique"
+    )
 
     def __str__(self):
         classe_info = self.current_classe.name if self.current_classe else 'Non assignée'

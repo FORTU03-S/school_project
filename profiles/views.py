@@ -1,6 +1,29 @@
 # profiles/views.py
 from django.db import models, IntegrityError
 import logging 
+from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.db.models import Sum, F, Q
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.core.files.base import ContentFile
+import base64 # Pour l'encodage du PDF si on l'envoie directement
+import uuid # Pour le numéro de reçu unique
+import random
+import string
+import os # Pour les chemins de fichiers
+from django.conf import settings
+from django.core.mail import EmailMessage
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+import json
+
+# Imports pour le PDF
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_RIGHT, TA_CENTER
+from reportlab.lib import colors
 logger = logging.getLogger(__name__)
 #from .chart_generator import ChartGenerator
 from datetime import datetime
@@ -20,8 +43,7 @@ from  profiles.forms import Notification
 from school.models import School, TuitionFee
 from .models import CustomUser as User
 from django import forms
-from school.forms import EnrollmentForm
-
+from school.forms import EnrollmentForm, PaymentForm, FeeTypeForm, TuitionFeeForm
 
 # Importez tous les formulaires nécessaires
 from .forms import (
@@ -35,7 +57,7 @@ from .forms import (
     DisciplinaryRecordForm,# Ajouté pour la vue teacher_student_detail_view si besoin 
     CourseForm,
     AcademicPeriodForm,
-    TeacherCreationForm,
+    TeacherCreationForm
     
 )
 from profiles.forms import ClasseForm
@@ -265,185 +287,593 @@ def teacher_dashboard_view(request):
 def is_accounting_or_admin_or_direction(user):
     return user.is_authenticated and user.user_type in ['ADMIN', 'ACCOUNTANT', 'DIRECTION']
 
-#def is_accountant(user):
- #    return user.is_authenticated and user.user_type == 'ACCOUNTANT'
-@login_required
-@user_passes_test(is_accounting_or_admin_or_direction)
-def accounting_dashboard_view(request):
-    current_school = None
-    if request.user.is_authenticated and request.user.school:
-        current_school = request.user.school
+def generate_receipt_pdf(payment_obj):
+    # Chemin où le PDF sera sauvegardé temporairement
+    # Assurez-vous que MEDIA_ROOT est configuré dans settings.py
+    # et que le dossier 'receipts' existe dans MEDIA_ROOT
+    pdf_filename = f"receipt_{payment_obj.receipt_number}.pdf"
+    pdf_path = os.path.join(settings.MEDIA_ROOT, 'receipts', pdf_filename)
+    
+    # Créer le dossier 'receipts' si il n'existe pas
+    os.makedirs(os.path.join(settings.MEDIA_ROOT, 'receipts'), exist_ok=True)
 
-    # --- 1. Vue d'ensemble des paiements ---
-    total_paid_for_school = 0
-    remaining_balance_for_school = 0
-    payments_list = []
+    doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+    styles = getSampleStyleSheet()
+    
+    # Styles personnalisés
+    header_style = ParagraphStyle(
+        'Header',
+        parent=styles['h1'],
+        fontSize=20,
+        alignment=TA_CENTER,
+        spaceAfter=14
+    )
+    subheader_style = ParagraphStyle(
+        'SubHeader',
+        parent=styles['h2'],
+        fontSize=14,
+        alignment=TA_CENTER,
+        spaceAfter=10
+    )
+    body_style = ParagraphStyle(
+        'Body',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceBefore=6,
+        spaceAfter=6
+    )
+    right_align_style = ParagraphStyle(
+        'RightAlign',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=TA_RIGHT
+    )
+    center_align_style = ParagraphStyle(
+        'CenterAlign',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=TA_CENTER
+    )
 
-    if current_school:
-        # Calcul du total payé pour l'école actuelle
-        school_payments_summary = Payment.objects.filter(
-            student__school=current_school
-        ).aggregate(
-            total_paid=Sum('amount_paid')
+    elements = []
+
+    # En-tête
+    elements.append(Paragraph("Reçu de Paiement", header_style))
+    elements.append(Paragraph(f"École: {payment_obj.student.school.name if payment_obj.student and payment_obj.student.school else 'N/A'}", subheader_style))
+    elements.append(Spacer(1, 0.2 * 10))
+
+    # Informations sur le reçu
+    data = [
+        ["Numéro de Reçu:", payment_obj.receipt_number],
+        ["Date de Paiement:", payment_obj.payment_date.strftime("%d %B %Y")],
+        ["Période Académique:", payment_obj.academic_period.name if payment_obj.academic_period else 'N/A'],
+        ["Enregistré par:", payment_obj.recorded_by.full_name if payment_obj.recorded_by else 'N/A']
+    ]
+    table = Table(data, colWidths=[150, 300])
+    table.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
+        ('BACKGROUND', (0,0), (0,-1), colors.lightgrey),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+    ]))
+    elements.append(table)
+    elements.append(Spacer(1, 0.4 * 10))
+
+    # Informations sur l'élève
+    elements.append(Paragraph("Détails de l'Élève:", styles['h3']))
+    elements.append(Paragraph(f"Nom Complet: {payment_obj.student.full_name}", body_style))
+    elements.append(Paragraph(f"Code Élève: {payment_obj.student.student_id_code}", body_style))
+    elements.append(Paragraph(f"Classe: {payment_obj.student.current_classe.name if payment_obj.student.current_classe else 'N/A'}", body_style))
+    elements.append(Spacer(1, 0.2 * 10))
+
+    # Détails du paiement
+    elements.append(Paragraph("Détails du Paiement:", styles['h3']))
+    payment_details_data = [
+        ["Intitulé du Frais:", payment_obj.fee_type.name if payment_obj.fee_type else 'N/A'],
+        ["Montant Payé:", f"{payment_obj.amount_paid:.2f} $"],
+        ["Statut du Paiement:", payment_obj.get_payment_status_display()],
+        ["ID Transaction:", payment_obj.transaction_id if payment_obj.transaction_id else 'N/A']
+    ]
+    payment_details_table = Table(payment_details_data, colWidths=[150, 300])
+    payment_details_table.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
+        ('BACKGROUND', (0,0), (0,-1), colors.lightgrey),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+    ]))
+    elements.append(payment_details_table)
+    elements.append(Spacer(1, 0.5 * 10))
+
+    elements.append(Paragraph("Merci pour votre paiement.", center_align_style))
+    elements.append(Spacer(1, 0.5 * 10))
+    elements.append(Paragraph("Signature de l'administration: _______________________", right_align_style))
+
+    doc.build(elements)
+    
+    return pdf_path
+
+# Fonction d'aide pour envoyer une notification (email et/ou système)
+def send_notification_to_user(recipient_user, subject, message_body, email_template=None, context=None, attachments=None):
+    if not recipient_user or not recipient_user.email:
+        print(f"Impossible d'envoyer la notification : Utilisateur {recipient_user} sans email ou non valide.")
+        return False
+
+    # Envoi par email
+    try:
+        if email_template:
+            # Rendre le contenu HTML de l'email à partir d'un template
+            html_content = render_to_string(email_template, context)
+            msg = EmailMessage(
+                subject,
+                html_content,
+                settings.DEFAULT_FROM_EMAIL,
+                [recipient_user.email]
+            )
+            msg.content_subtype = "html" # MainType is text/html
+        else:
+            msg = EmailMessage(
+                subject,
+                message_body,
+                settings.DEFAULT_FROM_EMAIL,
+                [recipient_user.email]
+            )
+
+        if attachments:
+            for attachment_path, attachment_name, mimetype in attachments:
+                msg.attach_file(attachment_path, mimetype=mimetype)
+        
+        msg.send(fail_silently=False)
+        print(f"Email envoyé à {recipient_user.email} pour {subject}")
+    except Exception as e:
+        print(f"Erreur lors de l'envoi de l'email à {recipient_user.email}: {e}")
+        return False
+
+    # Envoi via le système de notification (modèle Notification)
+    try:
+        Notification.objects.create(
+            sender=settings.DEFAULT_FROM_EMAIL, # Ou un utilisateur admin
+            recipient=recipient_user,
+            subject=subject,
+            message=message_body,
+            # Vous pouvez ajouter un lien vers le reçu ici si le reçu est une URL téléchargeable
+            # ou stocker le chemin du PDF si c'est pour un usage interne.
         )
-        total_paid_for_school = school_payments_summary.get('total_paid') or 0
+        print(f"Notification système créée pour {recipient_user.email}")
+    except Exception as e:
+        print(f"Erreur lors de la création de la notification système pour {recipient_user.email}: {e}")
+        return False
+    
+    return True
 
-        # Calcul du total des frais de scolarité dus pour la période actuelle et l'école
-        # Assurez-vous que votre modèle AcademicPeriod a un champ 'is_current'
-        total_tuition_fees = TuitionFee.objects.filter(
-            classe__school=current_school,
-            academic_period__is_current=True # Filtrer par la période académique actuelle
-        ).aggregate(total_fees=Sum('amount'))['total_fees'] or 0
+class AccountingDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = 'profiles/accounting_dashboard.html'
 
-        remaining_balance_for_school = total_tuition_fees - total_paid_for_school
+    def test_func(self):
+        # Autoriser l'accès uniquement aux ADMIN, ACCOUNTANT, DIRECTION
+        return self.request.user.user_type in [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.DIRECTION]
 
-        # Récupération des 15 derniers paiements pour l'école actuelle
-        payments_list = Payment.objects.filter(
-            student__school=current_school
-        ).order_by('-payment_date', '-id')[:15] # Ajout de '-id' pour un tri stable
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # Récupérer l'école associée à l'utilisateur connecté
+        # Supposons que votre CustomUser a un ForeignKey 'school'
+        current_school = user.school if hasattr(user, 'school') else None
+        context['current_school'] = current_school
 
-    # --- 2. Gestion des formulaires (Ajouter Paiement, Définir Frais) ---
-    payment_form = PaymentForm(user_school=current_school)
-    tuition_fee_form = TuitionFeeForm(user_school=current_school)
+        # Filtrer par l'école de l'utilisateur
+        if current_school:
+            # Récupérer la période académique active pour l'école
+            try:
+                active_period = AcademicPeriod.objects.get(school=current_school, is_current=True)
+            except AcademicPeriod.DoesNotExist:
+                active_period = AcademicPeriod.objects.filter(school=current_school).order_by('-start_date').first()
 
-    if request.method == 'POST':
-        # Gérer l'ajout de paiement
+            if not active_period:
+                messages.warning(self.request, "Aucune période académique active ou définie pour votre école.")
+                return context # Retourne le contexte sans les données spécifiques à la période
+
+            context['active_period'] = active_period
+            
+            # --- Formulaires ---
+            context['payment_form'] = PaymentForm(school_id=current_school.id, user=user)
+            context['tuition_fee_form'] = TuitionFeeForm(school_id=current_school.id)
+            context['fee_type_form'] = FeeTypeForm() # Pour créer de nouveaux intitulés de frais
+
+            # --- Calculs Généraux ---
+            payments_in_period = Payment.objects.filter(academic_period=active_period, student__school=current_school)
+            total_paid_for_school = payments_in_period.aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
+            context['total_paid_for_school'] = total_paid_for_school
+
+            # Calcul du solde restant global
+            # 1. Calculer le total des frais attendus pour la période/école, par classe
+            expected_fees_by_classe = TuitionFee.objects.filter(
+                academic_period=active_period,
+                classe__school=current_school
+            ).values('classe').annotate(
+                total_amount_per_classe=Sum('amount')
+            )
+
+            total_expected_for_school = 0
+            for item in expected_fees_by_classe:
+                classe_id = item['classe']
+                fees_for_this_classe = item['total_amount_per_classe']
+                num_students_in_class = Student.objects.filter(
+                    current_classe_id=classe_id,
+                    academic_period=active_period, # Assurez-vous que l'élève est aussi dans cette période
+                    school=current_school # et dans cette école
+                ).count()
+                total_expected_for_school += (fees_for_this_classe * num_students_in_class)
+
+            context['total_expected_for_school'] = total_expected_for_school
+            context['remaining_balance_for_school'] = total_expected_for_school - total_paid_for_school
+
+            # --- Détails par Type de Frais ---
+            payments_by_fee_type = payments_in_period \
+                                .values('fee_type__name') \
+                                .annotate(total=Sum('amount_paid')) \
+                                .order_by('fee_type__name')
+            context['payments_by_fee_type'] = payments_by_fee_type
+
+            # --- Statut des Paiements par Élève ---
+            student_payment_status = []
+            # On ne prend que les étudiants de l'école et de la période active
+            students_in_period = Student.objects.filter(school=current_school, academic_period=active_period).select_related('current_classe', 'user_account', 'school','academic_period').prefetch_related('parents')
+
+            for student in students_in_period:
+                # Montant total des frais que cet élève doit
+                fees_due_for_student = TuitionFee.objects.filter(
+                    academic_period=active_period,
+                    classe=student.current_classe,
+                    fee_type__school=current_school # Les types de frais doivent aussi être liés à l'école ou globaux
+                ).aggregate(Sum('amount'))['amount__sum'] or 0
+
+                # Montant total payé par cet élève
+                amount_paid_by_student = Payment.objects.filter(
+                    academic_period=active_period,
+                    student=student
+                ).aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
+
+                remaining_balance = fees_due_for_student - amount_paid_by_student
+                
+                status_text = "À Jour"
+                status_class = "status-paid"
+                if remaining_balance > 0:
+                    status_text = "Dû"
+                    status_class = "status-due"
+                elif remaining_balance < 0:
+                    status_text = "Trop Payé"
+                    status_class = "status-overpaid"
+
+                # Récupérer les parents liés à cet élève
+                parents_list = list(student.parents.all()) # Récupère les CustomUser ayant le rôle PARENT
+                
+                student_payment_status.append({
+                    'student': student,
+                    'fees_due': fees_due_for_student,
+                    'amount_paid': amount_paid_by_student,
+                    'remaining_balance': remaining_balance,
+                    'status_text': status_text,
+                    'status_class': status_class,
+                    'parents': parents_list
+                })
+            
+            context['student_payment_status'] = sorted(student_payment_status, key=lambda x: x['remaining_balance'], reverse=True)
+
+
+            # --- Liste des Classes et Élèves (filtrage) ---
+            context['classes'] = Classe.objects.filter(school=current_school).order_by('name')
+            selected_class_id = self.request.GET.get('class_id')
+            context['selected_class_id'] = int(selected_class_id) if selected_class_id else None
+
+            if selected_class_id:
+                students_in_selected_class = Student.objects.filter(
+                    school=current_school, 
+                    current_classe_id=selected_class_id,
+                    academic_period=active_period
+                ).select_related('current_classe', 'user_account').prefetch_related('parents')
+            else:
+                students_in_selected_class = Student.objects.filter(
+                    school=current_school,
+                    academic_period=active_period
+                ).select_related('current_classe', 'user_account').prefetch_related('parents')
+
+            context['students_in_selected_class'] = students_in_selected_class.order_by('last_name', 'first_name')
+            
+            # --- Frais de scolarité définis ---
+            context['tuition_fees_set'] = TuitionFee.objects.filter(
+                academic_period=active_period,
+                classe__school=current_school
+            ).select_related('classe', 'academic_period', 'set_by', 'fee_type').order_by('classe__name', 'fee_type__name')
+
+            # --- Derniers paiements ---
+            context['payments_list'] = payments_in_period.select_related('student', 'academic_period', 'recorded_by', 'fee_type').order_by('-payment_date')[:20] # Limiter aux 20 derniers
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        current_school = user.school if hasattr(user, 'school') else None
+
+        if not current_school:
+            messages.error(request, "Vous n'êtes associé à aucune école.")
+            return redirect(reverse_lazy('profiles:accounting_dashboard'))
+
+        # Récupérer la période académique active
+        try:
+            active_period = AcademicPeriod.objects.get(school=current_school, is_current=True)
+        except AcademicPeriod.DoesNotExist:
+            messages.error(request, "Aucune période académique active définie pour votre école. Impossible d'effectuer l'opération.")
+            return redirect(reverse_lazy('profiles:accounting_dashboard'))
+
+        # --- Gérer l'ajout d'un nouveau paiement ---
         if 'add_payment' in request.POST:
-            payment_form = PaymentForm(request.POST, user_school=current_school)
+            payment_form = PaymentForm(request.POST, user=user, school_id=current_school.id)
             if payment_form.is_valid():
-                new_payment = payment_form.save(commit=False)
-                new_payment.recorded_by = request.user
-                new_payment.save()
+                payment = payment_form.save(commit=False)
+                payment.academic_period = active_period # Assigner la période active
+                payment.recorded_by = user # L'utilisateur connecté est celui qui enregistre
                 
-                # --- LOGIQUE D'ENVOI DE NOTIFICATION AUX PARENTS (CORRIGÉE pour ManyToManyField) ---
-                student = new_payment.student
+                # Générer un numéro de reçu unique
+                while True:
+                    receipt_number = f"REC-{uuid.uuid4().hex[:8].upper()}"
+                    if not Payment.objects.filter(receipt_number=receipt_number).exists():
+                        payment.receipt_number = receipt_number
+                        break
                 
-                # Récupérer TOUS les parents liés à cet élève via le champ 'Parents' (au pluriel)
-                parents_for_notification = student.Parents.all() # Accès via .all() car c'est un ManyToManyField
+                payment.save()
+                messages.success(request, f"Paiement de {payment.amount_paid}$ enregistré avec succès ! Reçu #{payment.receipt_number}")
 
-                if parents_for_notification.exists(): # Vérifie s'il y a au moins un parent lié
-                    for parent_user in parents_for_notification:
-                        # Assurez-vous que le parent est bien un CustomUser de type 'PARENT'
-                        # Utilisez la même logique de comparaison de type que pour le décorateur
-                        if parent_user.user_type == 'PARENT': # Si UserRole est une enum, utilisez CustomUser.UserRole.PARENT
-                            Notification.objects.create(
-                                recipient=parent_user, # Le CustomUser du parent est le destinataire
-                                sender=request.user, # L'utilisateur connecté est l'expéditeur
-                                subject=f"Confirmation de Paiement - {new_payment.student.full_name}",
-                                message=f"Bonjour {parent_user.full_name},\n\n"
-                                        f"Nous confirmons la réception d'un paiement de {new_payment.amount_paid:.2f} $ pour {new_payment.student.full_name} "
-                                        f"concernant la période académique : {new_payment.academic_period.name}.\n\n"
-                                        f"Date de paiement : {new_payment.payment_date.strftime('%d/%m/%Y')}\n"
-                                        f"Statut : {new_payment.get_payment_status_display()}\n"
-                                        f"ID de transaction : {new_payment.transaction_id if new_payment.transaction_id else 'N/A'}\n\n"
-                                        f"Merci pour votre paiement.\n"
-                                        f"Cordialement,\nVotre Administration Scolaire.",
-                                notification_type='PAYMENT', # Assurez-vous que ce type existe dans votre modèle Notification
-                                is_read=False,
+                # --- Automatisation : Générer et envoyer le reçu PDF ---
+                try:
+                    pdf_path = generate_receipt_pdf(payment)
+                    payment.receipt_file.name = os.path.join('receipts', os.path.basename(pdf_path))
+                    payment.save(update_fields=['receipt_file']) # Sauvegarde le chemin du fichier PDF
+                    
+                    # Envoyer le reçu au(x) parent(s) de l'élève
+                    student = payment.student
+                    if student.parents.exists():
+                        for parent_user in student.parents.all(): # student.parents est un ManyToMany vers CustomUser
+                            email_subject = f"Reçu de paiement pour {student.full_name} - {payment.receipt_number}"
+                            email_context = {
+                                'student_name': student.full_name,
+                                'amount_paid': payment.amount_paid,
+                                'payment_date': payment.payment_date,
+                                'receipt_number': payment.receipt_number,
+                                'fee_type_name': payment.fee_type.name if payment.fee_type else 'Frais',
+                                'school_name': current_school.name,
+                                'parent_name': parent_user.full_name,
+                            }
+                            send_notification_to_user(
+                                recipient_user=parent_user,
+                                subject=email_subject,
+                                message_body=f"Veuillez trouver ci-joint le reçu pour le paiement de {payment.amount_paid}$ pour {student.full_name}.",
+                                email_template='school/receipt_email_template.html', # Créez ce template
+                                context=email_context,
+                                attachments=[(pdf_path, f"Reçu_{payment.receipt_number}.pdf", 'application/pdf')]
                             )
-                    messages.success(request, f"Paiement enregistré et notification(s) envoyée(s) aux parent(s) de {student.full_name}.")
-                else:
-                    messages.warning(request, f"Paiement enregistré. Aucun parent de type PARENT associé à {student.full_name} pour la notification.")
-                # --- FIN LOGIQUE NOTIFICATION ---
+                        messages.info(request, "Reçu PDF généré et envoyé aux parents.")
+                    else:
+                        messages.warning(request, "Aucun parent n'est lié à cet élève pour l'envoi du reçu.")
 
-                return redirect('profiles:accounting_dashboard') # Redirection après succès
+                except Exception as e:
+                    messages.error(request, f"Erreur lors de la génération ou l'envoi du reçu : {e}")
+                    # Supprimez le fichier de reçu si l'envoi échoue et n'est pas souhaité
+                    if os.path.exists(pdf_path):
+                        os.remove(pdf_path)
+
+
             else:
                 messages.error(request, "Erreur lors de l'enregistrement du paiement. Veuillez vérifier les informations.")
-                print(payment_form.errors) # Pour le débogage en console
+                context = self.get_context_data() # Recharge le contexte avec les erreurs du formulaire
+                context['payment_form'] = payment_form # Passe le formulaire avec les erreurs
+                return render(request, self.template_name, context)
 
-        # Gérer la définition des frais de scolarité
+        # --- Gérer la définition des frais de scolarité ---
         elif 'set_tuition_fee' in request.POST:
-            tuition_fee_form = TuitionFeeForm(request.POST, user_school=current_school)
+            tuition_fee_form = TuitionFeeForm(request.POST, school_id=current_school.id)
             if tuition_fee_form.is_valid():
-                new_fee = tuition_fee_form.save(commit=False)
-                new_fee.set_by = request.user
-                new_fee.save()
-                messages.success(request, "Frais de scolarité définis avec succès.")
-                return redirect('profiles:accounting_dashboard') # Redirection après succès
+                # Vérifier si un frais de ce type pour cette classe/période existe déjà
+                fee_type_instance = tuition_fee_form.cleaned_data['fee_type']
+                classe_instance = tuition_fee_form.cleaned_data['classe']
+                
+                existing_fee = TuitionFee.objects.filter(
+                    fee_type=fee_type_instance,
+                    classe=classe_instance,
+                    academic_period=active_period
+                ).first()
+
+                if existing_fee:
+                    # Mettre à jour les frais existants
+                    existing_fee.amount = tuition_fee_form.cleaned_data['amount']
+                    existing_fee.set_by = user
+                    existing_fee.save()
+                    messages.success(request, f"Frais de scolarité mis à jour pour {classe_instance.name} ({fee_type_instance.name}).")
+                    tuition_fee = existing_fee # Pour la notification
+                else:
+                    # Créer de nouveaux frais
+                    tuition_fee = tuition_fee_form.save(commit=False)
+                    tuition_fee.academic_period = active_period
+                    tuition_fee.set_by = user
+                    tuition_fee.save()
+                    messages.success(request, f"Nouveaux frais de scolarité définis pour {classe_instance.name} ({fee_type_instance.name}).")
+                
+                # --- Automatisation : Notifier les parents ---
+                students_in_classe = Student.objects.filter(current_classe=classe_instance, academic_period=active_period, school=current_school).prefetch_related('parents')
+                if students_in_classe.exists():
+                    notified_parents = set() # Pour éviter d'envoyer plusieurs fois le même message au même parent
+                    email_subject = f"Nouveaux frais pour la classe {classe_instance.name}"
+                    email_template = 'school/fees_set_notification_email.html' # Créez ce template
+                    
+                    for student in students_in_classe:
+                        if student.parents.exists():
+                            for parent_user in student.parents.all():
+                                if parent_user not in notified_parents:
+                                    email_context = {
+                                        'parent_name': parent_user.full_name,
+                                        'student_name': student.full_name, # Peut être utile pour le parent
+                                        'classe_name': classe_instance.name,
+                                        'fee_type_name': fee_type_instance.name,
+                                        'amount': tuition_fee.amount,
+                                        'academic_period_name': active_period.name,
+                                        'school_name': current_school.name,
+                                        'dashboard_url': request.build_absolute_uri(reverse_lazy('school:accounting_dashboard'))
+                                    }
+                                    send_notification_to_user(
+                                        recipient_user=parent_user,
+                                        subject=email_subject,
+                                        message_body=f"Les frais de {fee_type_instance.name} pour la classe {classe_instance.name} ont été fixés à {tuition_fee.amount}$.",
+                                        email_template=email_template,
+                                        context=email_context
+                                    )
+                                    notified_parents.add(parent_user)
+                    if notified_parents:
+                        messages.info(request, f"Notification envoyée à {len(notified_parents)} parent(s) pour les frais de {classe_instance.name}.")
+                    else:
+                        messages.warning(request, "Aucun parent trouvé pour les élèves de cette classe. Notification non envoyée.")
+
             else:
-                messages.error(request, "Erreur lors de la définition des frais de scolarité. Veuillez vérifier les informations.")
-                print(tuition_fee_form.errors) # Pour le débogage en console
+                messages.error(request, "Erreur lors de la définition des frais. Veuillez vérifier les informations.")
+                context = self.get_context_data()
+                context['tuition_fee_form'] = tuition_fee_form
+                return render(request, self.template_name, context)
 
-    # --- 3. Liste des élèves par classe (avec filtrage) ---
-    selected_class_id = request.GET.get('class_id')
-    classes = []
-    students_in_selected_class = []
+        # --- Gérer la création d'un nouveau type de frais ---
+        elif 'add_fee_type' in request.POST:
+            fee_type_form = FeeTypeForm(request.POST)
+            if fee_type_form.is_valid():
+                new_fee_type = fee_type_form.save(commit=False)
+                new_fee_type.school = current_school # Assurez-vous que votre modèle FeeType a un champ school
+                new_fee_type.save()
+                messages.success(request, f"Type de frais '{new_fee_type.name}' ajouté avec succès.")
+            else:
+                messages.error(request, "Erreur lors de l'ajout du type de frais. Veuillez vérifier les informations.")
+                context = self.get_context_data()
+                context['fee_type_form'] = fee_type_form
+                return render(request, self.template_name, context)
 
-    if current_school:
-        classes = Classe.objects.filter(school=current_school).order_by('name')
-        if selected_class_id:
+        # --- Gérer l'envoi de notification manuelle aux parents (déjà existant dans le template) ---
+        elif 'recipient_user_id' in request.POST and 'message' in request.POST:
+            recipient_id = request.POST.get('recipient_user_id')
+            message_content = request.POST.get('message')
             try:
-                selected_class = Classe.objects.get(id=selected_class_id, school=current_school)
-                students_in_selected_class = Student.objects.filter(
-                    current_classe=selected_class,
-                    school=current_school
-                ).order_by('last_name', 'first_name')
-            except Classe.DoesNotExist:
-                messages.error(request, "La classe sélectionnée n'existe pas.")
-                pass # Continue à afficher le reste du tableau de bord même si la classe est invalide
-
-    # --- 4. Récupération des frais de scolarité définis ---
-    tuition_fees_set = []
-    if current_school:
-        tuition_fees_set = TuitionFee.objects.filter(
-            classe__school=current_school
-        ).order_by('-academic_period__start_date', 'classe__name') # Correction ici pour '_'
+                recipient_user = CustomUser.objects.get(id=recipient_id)
+                send_notification_to_user(recipient_user, "Notification de l'école", message_content)
+                messages.success(request, f"Notification envoyée à {recipient_user.full_name}.")
+            except CustomUser.DoesNotExist:
+                messages.error(request, "Destinataire de la notification introuvable.")
+            except Exception as e:
+                messages.error(request, f"Erreur lors de l'envoi de la notification : {e}")
 
 
-    context = {
-        'current_school': current_school,
-        'total_paid_for_school': total_paid_for_school,
-        'remaining_balance_for_school': remaining_balance_for_school,
-        'payments_list': payments_list,
-        'payment_form': payment_form, 
-        'tuition_fee_form': tuition_fee_form, 
-        'classes': classes,
-        'selected_class_id': int(selected_class_id) if selected_class_id else None,
-        'students_in_selected_class': students_in_selected_class,
-        'tuition_fees_set': tuition_fees_set,
-        'title': 'Tableau de Bord Comptable'
-    }
+        return redirect(reverse_lazy('profiles:accounting_dashboard'))
+# Formulaire pour créer un nouveau type de frais (intitulé)
+def is_direction(user):
+    return user.is_authenticated and user.user_type == UserRole.DIRECTION
 
-    return render(request, 'profiles/accounting_dashboard.html', context)
 
 @login_required
 @user_passes_test(is_direction, login_url='/login/')
 def add_student_view(request):
-    student_form = StudentForm(user_school=request.user.school) # Initialisation par défaut
-    parent_form = ParentCreationForm() # Initialisation par défaut
+    user_school = request.user.school
+    
+    # Rediriger si l'utilisateur n'est pas affilié à une école
+    if not user_school:
+        messages.error(request, "Votre compte n'est affilié à aucune école. Veuillez contacter un administrateur.")
+        return redirect('some_error_page') # Remplacez par une URL appropriée
+
+    student_form = StudentForm(user_school=user_school)
+    parent_form = ParentCreationForm() # Pour le cas où le parent n'existe pas
+
+    # Un nouveau formulaire pour lier un élève à un parent existant
+    # Ceci est une suggestion si vous voulez un flow séparé pour lier
+    # For now, we'll keep the creation logic within the main view.
 
     if request.method == 'POST':
-        student_form = StudentForm(request.POST, request.FILES, user_school=request.user.school)
-        parent_form = ParentCreationForm(request.POST)
+        student_form = StudentForm(request.POST, request.FILES, user_school=user_school)
+        parent_form = ParentCreationForm(request.POST) # Pour les informations du parent potentiel
 
-        # Validez les deux formulaires
+        # Validez les deux formulaires (le parent_form sera validé même si on réutilise un parent existant)
         if student_form.is_valid() and parent_form.is_valid():
+            parent_email = parent_form.cleaned_data.get('email') # L'email saisi dans le formulaire du parent
+
             try:
-                # Utilisation d'une transaction pour s'assurer que si la création du parent ou de l'élève échoue, tout est annulé.
                 with transaction.atomic():
-                    # 1. Création du compte Parent
-                    parent_user = parent_form.save(commit=False)
-                    parent_user.school = request.user.school # Le parent est lié à la même école que la direction qui l'ajoute
-                    parent_user.save()
+                    # --- GESTION DU PARENT ---
+                    # 1. Tenter de trouver un CustomUser existant avec cet email et le type 'PARENT'
+                    try:
+                        # Assurez-vous que l'email est unique pour CustomUser
+                        # et que CustomUser.user_type est bien filtré
+                        existing_parent_user = CustomUser.objects.get(
+                            email=parent_email, 
+                            user_type=UserRole.PARENT,
+                            school=user_school # Optionnel: filtrer aussi par école si un parent ne peut être que dans 1 école
+                        )
+                        # Si trouvé, on utilise ce parent existant
+                        parent_to_link = existing_parent_user
+                        messages.info(request, f"Parent existant ({parent_to_link.full_name}) trouvé et réutilisé.")
 
-                    # 2. Création de l'élève
+                    except CustomUser.DoesNotExist:
+                        # Si aucun CustomUser existant avec cet email/type n'est trouvé, créer un nouveau parent
+                        parent_user = parent_form.save(commit=False)
+                        parent_user.school = user_school # Le parent est lié à la même école
+                        parent_user.user_type = UserRole.PARENT # Assurez-vous que le type est correctement défini par le formulaire ou ici
+                        parent_user.save()
+                        
+                        # Si votre modèle Parent a un champ 'user_account' qui est OneToOneField
+                        # Il est généralement créé automatiquement si user_account est primary_key=True
+                        # Sinon, vous devez le créer explicitement.
+                        # Ex: Parent.objects.create(user_account=parent_user, ...)
+                        # Votre Parent modèle a user_account comme OneToOneField, donc ça devrait être bon.
+
+                        parent_to_link = parent_user # Le nouveau CustomUser parent
+
+                        messages.success(request, f"Nouveau parent ({parent_to_link.full_name}) créé.")
+                    
+                    # --- CRÉATION DE L'ÉLÈVE ---
+                    # 2. Création de l'élève (instance du modèle Student)
                     student = student_form.save(commit=False)
-                    student.school = request.user.school # L'élève est lié à la même école que la direction
-                    student.save() # Le student_id_code sera généré ici via la méthode save du modèle
+                    student.school = user_school # L'élève est lié à la même école
+                    
+                    # Créez le CustomUser pour l'élève ici si chaque élève doit avoir un compte utilisateur.
+                    # Actuellement, votre Student a un user_account qui est OneToOneField,
+                    # mais votre StudentForm ne gère pas la création de ce CustomUser
+                    # et votre vue ne le fait pas non plus.
+                    # Si chaque élève DOIT avoir un compte, la logique doit être ajoutée ici.
+                    # Pour l'instant, je me base sur votre code qui ne le crée pas explicitement dans cette vue.
+                    # Si vous voulez créer un user_account pour l'élève:
+                    # student_user = CustomUser.objects.create_user(
+                    #     username=generate_unique_username(student.first_name, student.last_name), # Fonction à créer pour un nom d'utilisateur unique
+                    #     email=student_form.cleaned_data.get('email'), # Si l'email est dans student_form
+                    #     first_name=student.first_name,
+                    #     last_name=student.last_name,
+                    #     user_type=UserRole.STUDENT,
+                    #     school=user_school,
+                    #     password=generate_temporary_password() # Mot de passe temporaire
+                    # )
+                    # student.user_account = student_user
 
-                    # 3. Lier le parent à l'élève
-                    student.parents.add(parent_user) # Ajoute le parent à la relation ManyToMany
+                    student.save() # Sauvegarde l'instance Student. student_id_code est auto-généré ici.
 
-                    messages.success(request, f"L'élève {student.full_name} et son parent {parent_user.full_name} ont été ajoutés avec succès.")
+                    # --- LIEN PARENT-ENFANT ---
+                    # 3. Lier le parent (CustomUser) à l'élève (Student)
+                    # Votre modèle Student a un ManyToManyField parents vers CustomUser.
+                    student.parents.add(parent_to_link) 
+                    # Note : La relation ManyToMany sur parents est de CustomUser vers Student.
+                    # Donc parent_to_link est un CustomUser, et student.parents.add() est correct.
+
+                    messages.success(request, f"L'élève {student.full_name} a été ajouté avec succès et lié au parent {parent_to_link.full_name}.")
                     return redirect('profiles:list_students') # Redirigez vers la liste des élèves ou autre
 
             except Exception as e:
+                # Ceci inclura les erreurs de validation d'unicité de l'email si elles sont levées avant
                 messages.error(request, f"Une erreur s'est produite lors de l'ajout de l'élève et du parent : {e}")
-                # Log l'erreur pour le débogage (dans un vrai projet)
                 # logger.error(f"Erreur à l'ajout élève/parent: {e}")
         else:
-            # Si un des formulaires n'est pas valide, les erreurs seront affichées automatiquement
-            messages.error(request, "Veuillez corriger les erreurs dans le formulaire.")
+            # Si un des formulaires n'est pas valide, les erreurs seront affichées automatiquement dans le template
+            messages.error(request, "Veuillez corriger les erreurs dans les formulaires.")
 
     context = {
         'student_form': student_form,
@@ -1759,33 +2189,6 @@ def academic_period_list(request):
 
 # --- AJOUTEZ CES CLASSES DE FORMULAIRE CI-DESSOUS ---
 
-class PaymentForm(ModelForm):
-    class Meta:
-        model = Payment
-        fields = ['student', 'academic_period', 'amount_paid', 'payment_date', 'payment_status', 'transaction_id']
-        widgets = {
-            'payment_date': DateInput(attrs={'type': 'date'}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        user_school = kwargs.pop('user_school', None)
-        super().__init__(*args, **kwargs)
-        if user_school:
-            self.fields['student'].queryset = Student.objects.filter(school=user_school).order_by('first_name')
-            self.fields['academic_period'].queryset = AcademicPeriod.objects.filter(school=user_school).order_by('-start_date')
-
-
-class TuitionFeeForm(ModelForm):
-    class Meta:
-        model = TuitionFee
-        fields = ['classe', 'academic_period', 'amount']
-
-    def __init__(self, *args, **kwargs):
-        user_school = kwargs.pop('user_school', None)
-        super().__init__(*args, **kwargs)
-        if user_school:
-            self.fields['classe'].queryset = Classe.objects.filter(school=user_school).order_by('name')
-            self.fields['academic_period'].queryset = AcademicPeriod.objects.filter(school=user_school).order_by('-start_date')
 
 @login_required
 @user_passes_test(lambda u: u.user_type == UserRole.DIRECTION or u.user_type == UserRole.ADMIN, login_url='/login/')
@@ -1983,6 +2386,8 @@ def create_or_update_student(request, student_id=None):
  #   return user.is_authenticated and (user.user_type == 'SCHOOL_ADMIN' or user.user_type == 'DIRECTOR')
 
 
+#@login_required
+#@user_passes_test(is_school_admin_or_director) # Seuls les admins/directeurs peuvent voir le tableau de bord
 
 #def is_school_admin_or_director(user):
  #   return user.is_authenticated and (user.user_type == 'SCHOOL_ADMIN' or user.user_type == 'DIRECTOR')
@@ -2846,3 +3251,264 @@ def teacher_message_view(request):
         'selected_course': selected_course,
     }
     return render(request, 'profiles/teacher_message.html', context) # Changement de template name ici
+# ... (autres imports)
+
+@require_POST
+@login_required
+def check_parent_email_ajax(request):
+    data = json.loads(request.body)
+    email = data.get('email')
+    school = request.user.school # Pour filtrer par école si nécessaire
+
+    if email:
+        try:
+            parent_user = CustomUser.objects.get(
+                email=email, 
+                user_type=UserRole.PARENT,
+                school=school # Filtrage optionnel
+            )
+            return JsonResponse({
+                'exists': True,
+                'full_name': parent_user.full_name,
+                'first_name': parent_user.first_name,
+                'last_name': parent_user.last_name,
+                'phone_number': parent_user.phone_number,
+                'address': parent_user.address, # Si ces champs sont sur CustomUser
+            })
+        except CustomUser.DoesNotExist:
+            return JsonResponse({'exists': False})
+    return JsonResponse({'error': 'Email non fourni'}, status=400)
+
+# profiles/views.py (là où vous avez défini ExistingParentForm)
+from django import forms
+from django_select2 import forms as s2forms # Importez Select2 forms
+
+# ... votre modèle CustomUser et UserRole
+
+class ExistingParentWidget(s2forms.ModelSelect2Widget):
+    search_fields = [
+        'first_name__icontains',
+        'last_name__icontains',
+        'email__icontains',
+        # Ajoutez d'autres champs sur lesquels vous voulez chercher, ex:
+        # 'phone_number__icontains',
+    ]
+    # Si vous voulez afficher le nom complet dans la liste de résultats
+    def label_from_instance(self, obj):
+        return f"{obj.first_name} {obj.last_name} ({obj.email})"
+
+
+# profiles/views.py ou profiles/forms.py (si vous déplacez le formulaire là)
+
+# Assurez-vous d'importer forms
+# Vos modèles
+
+# Formulaire pour choisir un parent existant (simplifié pour JS)
+class ExistingParentForm(forms.Form):
+    # Ce champ existera côté client sous forme d'input text et hidden ID
+    # Ici, il valide simplement l'ID du parent
+    parent_id = forms.IntegerField(
+        required=False, # Pas requis si on crée un nouveau parent
+        widget=forms.HiddenInput # Ce champ sera caché et rempli par JS
+    )
+    # Champ visible pour la recherche (non validé par ce formulaire ici, mais par JS)
+    parent_search_term = forms.CharField(
+        max_length=255, 
+        required=False, 
+        label="Rechercher un Parent Existant"
+    )
+
+    def clean_parent_id(self):
+        parent_id = self.cleaned_data.get('parent_id')
+        if parent_id:
+            try:
+                # Vérifie que l'ID correspond bien à un CustomUser de type PARENT
+                # et potentiellement de la bonne école
+                parent = CustomUser.objects.get(
+                    id=parent_id, 
+                    user_type=UserRole.PARENT
+                    # school=self.initial.get('user_school') # Si vous voulez filtrer par école ici aussi
+                )
+                return parent # Retourne l'instance du parent pour l'utiliser dans la vue
+            except CustomUser.DoesNotExist:
+                raise forms.ValidationError("Parent sélectionné invalide.")
+        return None # Si aucun ID n'est fourni, pas d'erreur (s'il n'est pas requis)
+
+@login_required
+@user_passes_test(is_direction, login_url='/login/')
+def search_parents_ajax(request):
+    query = request.GET.get('term', '')
+    user_school = request.user.school
+
+    if not query:
+        return JsonResponse([], safe=False)
+    
+        search_filter = (
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(email__icontains=query)
+        )
+
+        parents = CustomUser.objects.filter(
+            user_type=UserRole.PARENT,
+            school=user_school
+        ).filter(search_filter).order_by('last_name', 'first_name')[:10]
+
+# ... (code juste après cette ligne, par exemple 'results = []')
+
+    # ... (reste de la fonction)
+
+    results = []
+    for parent in parents:
+        results.append({
+            'id': parent.id,
+            'text': f"{parent.full_name} ({parent.email})" # Ce qui sera affiché à l'utilisateur
+        })
+    
+    return JsonResponse(results, safe=False)
+# profiles/views.py (modifications dans la vue add_student_view)
+
+# ... (imports existants) ...
+
+# Assurez-vous d'importer ExistingParentForm si ce n'est pas déjà fait
+# from .forms import ExistingParentForm, ParentCreationForm
+# Ou si ExistingParentForm est défini dans la même vue, c'est bon.
+
+@login_required
+@user_passes_test(is_direction, login_url='/login/')
+def add_student_view(request):
+    user_school = request.user.school
+    
+    if not user_school:
+        messages.error(request, "Votre compte n'est affilié à aucune école. Veuillez contacter un administrateur.")
+        return redirect('some_error_page') 
+
+    student_form = StudentForm(user_school=user_school, prefix='student')
+    parent_creation_form = ParentCreationForm(prefix='new_parent')
+    existing_parent_form = ExistingParentForm(prefix='existing_parent')
+
+    if request.method == 'POST':
+        action_type = request.POST.get('action_type')
+
+        student_form = StudentForm(request.POST, request.FILES, user_school=user_school, prefix='student')
+
+        if student_form.is_valid():
+            try:
+                with transaction.atomic():
+                    parent_to_link = None
+                    
+                    if action_type == 'select_existing':
+                        existing_parent_form = ExistingParentForm(request.POST, prefix='existing_parent')
+                        if existing_parent_form.is_valid():
+                            # Le clean_parent_id du formulaire retourne l'instance du parent
+                            parent_to_link = existing_parent_form.cleaned_data.get('parent_id') 
+                            if parent_to_link:
+                                messages.info(request, f"Parent existant ({parent_to_link.full_name}) sélectionné.")
+                            else:
+                                messages.error(request, "Veuillez sélectionner un parent existant.")
+                                # Si le parent_id est manquant mais l'action_type est 'select_existing', c'est une erreur.
+                                # Rendre le formulaire de sélection comme invalide pour afficher les erreurs
+                                existing_parent_form.add_error(None, "Veuillez sélectionner un parent.")
+                                context = {
+                                    'student_form': student_form,
+                                    'parent_creation_form': ParentCreationForm(prefix='new_parent'),
+                                    'existing_parent_form': existing_parent_form, # Renvoyer avec erreurs
+                                    'title': "Ajouter un Nouvel Élève et son Parent",
+                                    'active_tab': 'select_existing'
+                                }
+                                return render(request, 'profiles/add_student.html', context)
+                        else:
+                            messages.error(request, "Erreur lors de la sélection du parent.")
+                            context = {
+                                'student_form': student_form,
+                                'parent_creation_form': ParentCreationForm(prefix='new_parent'),
+                                'existing_parent_form': existing_parent_form, # Renvoyer avec erreurs
+                                'title': "Ajouter un Nouvel Élève et son Parent",
+                                'active_tab': 'select_existing'
+                            }
+                            return render(request, 'profiles/add_student.html', context)
+                            
+                    elif action_type == 'create_new':
+                        parent_creation_form = ParentCreationForm(request.POST, prefix='new_parent')
+                        if parent_creation_form.is_valid():
+                            parent_user = parent_creation_form.save(commit=False)
+                            parent_user.school = user_school
+                            parent_user.user_type = UserRole.PARENT
+                            parent_user.save()
+                            parent_to_link = parent_user
+                            messages.success(request, f"Nouveau parent ({parent_to_link.full_name}) créé.")
+                        else:
+                            messages.error(request, "Veuillez corriger les erreurs dans le formulaire de création du parent.")
+                            context = {
+                                'student_form': student_form,
+                                'parent_creation_form': parent_creation_form,
+                                'existing_parent_form': ExistingParentForm(prefix='existing_parent'),
+                                'title': "Ajouter un Nouvel Élève et son Parent",
+                                'active_tab': 'create_new'
+                            }
+                            return render(request, 'profiles/add_student.html', context)
+                    else:
+                        messages.error(request, "Veuillez choisir de sélectionner un parent existant ou d'en créer un nouveau.")
+                        context = {
+                            'student_form': student_form,
+                            'parent_creation_form': ParentCreationForm(prefix='new_parent'),
+                            'existing_parent_form': ExistingParentForm(prefix='existing_parent'),
+                            'title': "Ajouter un Nouvel Élève et son Parent",
+                            'active_tab': 'none_selected' # Ou un onglet par défaut
+                        }
+                        return render(request, 'profiles/add_student.html', context)
+
+
+                    if parent_to_link:
+                        student = student_form.save(commit=False)
+                        student.school = user_school
+                        student.save()
+                        student.parents.add(parent_to_link) 
+
+                        messages.success(request, f"L'élève {student.full_name} a été ajouté avec succès et lié au parent {parent_to_link.full_name}.")
+                        return redirect('profiles:list_students')
+                    else:
+                        messages.error(request, "Impossible de lier l'élève au parent. Vérifiez les informations.")
+                        # This else block should ideally not be reached if validation above is strict enough
+                        context = {
+                            'student_form': student_form,
+                            'parent_creation_form': parent_creation_form, # Keep errors if any
+                            'existing_parent_form': existing_parent_form, # Keep errors if any
+                            'title': "Ajouter un Nouvel Élève et son Parent",
+                            'active_tab': action_type # Keep the active tab
+                        }
+                        return render(request, 'profiles/add_student.html', context)
+
+            except Exception as e:
+                messages.error(request, f"Une erreur inattendue s'est produite lors de l'ajout de l'élève et du parent : {e}")
+                # log the exception for debugging
+                # import logging
+                # logger = logging.getLogger(_name_)
+                # logger.exception("Error adding student/parent")
+                context = {
+                    'student_form': student_form,
+                    'parent_creation_form': parent_creation_form,
+                    'existing_parent_form': existing_parent_form,
+                    'title': "Ajouter un Nouvel Élève et son Parent",
+                    'active_tab': action_type # Keep the active tab
+                }
+                return render(request, 'profiles/add_student.html', context)
+        else:
+            messages.error(request, "Veuillez corriger les erreurs dans le formulaire de l'élève.")
+            context = {
+                'student_form': student_form,
+                'parent_creation_form': ParentCreationForm(prefix='new_parent'),
+                'existing_parent_form': ExistingParentForm(prefix='existing_parent'),
+                'title': "Ajouter un Nouvel Élève et son Parent",
+                # No specific active_tab if student_form is invalid, as parent choice might not even have been made
+            }
+            return render(request, 'profiles/add_student.html', context)
+    else:
+        context = {
+            'student_form': student_form,
+            'parent_creation_form': parent_creation_form,
+            'existing_parent_form': existing_parent_form,
+            'title': "Ajouter un Nouvel Élève et son Parent",
+            'active_tab': 'create_new'
+        }
+    return render(request, 'profiles/add_student.html', context)

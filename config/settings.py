@@ -17,12 +17,11 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'une_cle_tres_longue_et_aleatoire_pour
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False # Mettez à False en production
 
-ALLOWED_HOSTS = ['http://fortumanagement.onrender.com'] # Laissez vide pour le développement, ajoutez les noms de domaine en production (ex: ['mon-site.com', 'www.mon-site.com'])
-import os
+#ALLOWED_HOSTS = ['http://fortumanagement.onrender.com'] # Laissez vide pour le développement, ajoutez les noms de domaine en production (ex: ['mon-site.com', 'www.mon-site.com'])
 
 # ... vos autres configurations ...
 
-#ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'fortumanagement.onrender.com').split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'fortumanagement.onrender.com').split(',')
 
 # Si vous avez DEBUG = True dans settings.py, même avec ALLOWED_HOSTS défini,
 # Django vérifiera toujours ce paramètre.
@@ -40,11 +39,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',    # Pour CustomUser et UserProfile
-    'school',
+    'school.apps.SchoolConfig', # Assurez-vous que SchoolConfig est correctement importé
     'profiles',   
     'crispy_forms', # Pour les formulaires Bootstrap (si vous l'utilisez)
     'crispy_bootstrap5', # Pour le thème Bootstrap 5 avec Crispy Forms
     'widget_tweaks', # Pour les widgets améliorés (si vous l'utilisez)
+   # 'django_select2' # Pour les sélecteurs améliorés (si vous l'utilisez)
 ]
 
 # MIDDLEWARE est une liste de classes de middleware à utiliser.
@@ -161,20 +161,52 @@ USE_TZ = True # Active la prise en charge des fuseaux horaires (recommandé)
 
 # Exemple simplifié pour le niveau de log crucial
 LOGGING = {
-    # ... (autres parties de la configuration) ...
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': { # <--- ASSUREZ-VOUS QUE CE GESTIONNAIRE EST DÉFINI !
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
+        'file_debug': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/debug.log', # Nous allons corriger le répertoire pour cela ci-dessous
+            'maxBytes': 1024*1024*5, # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        # ... autres gestionnaires ...
+    },
     'loggers': {
-        # ...
-        'profiles': { # Votre application 'profiles'
-            'handlers': ['console', 'file_debug'], # Assurez-vous que 'file_debug' est listé
-            'level': 'DEBUG', # C'est important pour voir les logger.debug
+        'django': {
+            'handlers': ['console'], # Cela fait maintenant référence au gestionnaire 'console' défini ci-dessus
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'profiles': {
+            'handlers': ['console', 'file_debug'], # Cela fait maintenant référence aux gestionnaires définis
+            'level': 'DEBUG',
             'propagate': False,
         },
+        # ... autres enregistreurs ...
     }
 }
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/' # URL de base pour les fichiers statiques (CSS, JS, images)
+STATIC_URL = '/static/' # URL de base pour les fichiers statiques (CSS, JS, images)
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Où Django collectera les fichiers statiques en production
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'), # Où vous stockerez vos fichiers statiques dans le développement
