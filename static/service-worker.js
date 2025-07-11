@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sybemacademia-cache-v1.0.3'; // Changez cette version si vous modifiez le cache
+const CACHE_NAME = 'sybemacademia-cache-v1.0.1'; // Changez cette version si vous modifiez le cache
 const urlsToCache = [
     '/', // Page d'accueil (ex: connexion)
     '/login/', // Si vous avez une URL de connexion spécifique
