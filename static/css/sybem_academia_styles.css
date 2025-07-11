@@ -1,0 +1,170 @@
+/* Ajoutez ces styles à votre sybem_academia_styles.css */
+
+.navbar-brand-custom {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--secondary-color); /* Ou une autre couleur de votre choix */
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+.navbar-brand-custom:hover {
+    color: var(--accent-color);
+}
+
+.navbar-brand-custom .brand-logo {
+    height: 40px; /* Ajustez la taille de votre logo */
+    width: auto;
+}
+
+.login-btn {
+    background: var(--secondary-color);
+    color: var(--primary-color);
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: background 0.3s ease;
+}
+
+.login-btn:hover {
+    background: var(--accent-color);
+    color: var(--primary-color);
+}
+
+/* Styles pour le dropdown utilisateur */
+.nav-item-dropdown {
+    position: relative;
+}
+
+.dropdown-toggle-custom {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--secondary-color);
+    text-decoration: none;
+    font-weight: bold;
+    padding: 8px 15px;
+    border: 1px solid var(--secondary-color);
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+.dropdown-toggle-custom:hover {
+    background: rgba(5, 226, 255, 0.1); /* Légère lueur */
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.dropdown-menu-custom {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: linear-gradient(147deg, #2e3a59 0%, #1a2b46 74%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    list-style: none;
+    padding: 10px 0;
+    min-width: 200px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: opacity 0.0s ease, transform 0.0s ease, visibility 0.0s; /* Instantané pour le moment */
+    z-index: 100;
+}
+
+.dropdown-menu-custom.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.0s;
+}
+
+.dropdown-menu-custom li a {
+    display: block;
+    padding: 8px 15px;
+    color: var(--text-color);
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.dropdown-menu-custom li a:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--accent-color);
+}
+
+.dropdown-menu-custom li hr {
+    border-color: rgba(255, 255, 255, 0.1);
+    margin: 5px 0;
+}
+
+.dropdown-menu-custom li a.text-danger {
+    color: #ff4d4d; /* Couleur rouge pour déconnexion */
+}
+.dropdown-menu-custom li a.text-danger:hover {
+    background-color: rgba(255, 77, 77, 0.1);
+}
+
+/* Partners Grid (vous aviez skills-grid, j'en crée un pour les partenaires) */
+.partners-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 40px;
+}
+
+.partner-logo {
+    max-width: 150px; /* Taille maximale pour les logos des partenaires */
+    height: auto;
+    filter: grayscale(100%);
+    opacity: 0.7;
+    transition: all 0.3s ease;
+}
+
+.partner-logo:hover {
+    filter: grayscale(0%);
+    opacity: 1;
+}
+
+/* Contact Info (pour remplacer le formulaire) */
+.contact-info {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+.contact-info p {
+    font-size: 1.1rem;
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.contact-info p i {
+    color: var(--secondary-color);
+    font-size: 1.3rem;
+}
+.contact-info ul {
+    list-style: none;
+    padding-left: 30px; /* Indentation pour les listes */
+    margin-bottom: 1.5rem;
+}
+.contact-info ul li {
+    margin-bottom: 5px;
+}
+.contact-info ul li a {
+    color: var(--accent-color);
+    text-decoration: none;
+}
+.contact-info ul li a:hover {
+    text-decoration: underline;
+}
+
+/* Correction pour Font Awesome 6 qui a changé fa-x en fa-x-twitter */
+.social-links .fa-x-twitter {
+    font-family: "Font Awesome 6 Brands"; /* S'assurer d'utiliser la bonne police */
+    /* Si vous avez encore fa-x, il faudra peut-être mettre à jour le CDN Font Awesome à la dernière version */
+}
