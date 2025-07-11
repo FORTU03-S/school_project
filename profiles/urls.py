@@ -3,7 +3,7 @@
 from django.urls import path, include
 from . import views
 from django.contrib.auth import views as auth_views # Importez les vues d'authentification de Django
-from .views import AccountingDashboardView
+#from .views import AccountingDashboardView
 
 app_name = 'profiles'
 
@@ -26,13 +26,13 @@ urlpatterns = [
     path('teacher-dashboard/', views.teacher_dashboard_view, name='teacher_dashboard'),
     path('direction-dashboard/', views.direction_dashboard_view, name='direction_dashboard'),
     #path('accounting-dashboard/', views.accounting_dashboard_view, name='accounting_dashboard'),
-    path('accounting-dashboard/', AccountingDashboardView.as_view(), name='accounting_dashboard'),
-    path('send-notification/', AccountingDashboardView.as_view(), name='send_notification'),
+    #path('accounting-dashboard/', AccountingDashboardView.as_view(), name='accounting_dashboard'),
+    #path('send-notification/', AccountingDashboardView.as_view(), name='send_notification'),
     path('check-parent-email/', views.check_parent_email_ajax, name='check_parent_email_ajax'),
     path('parents/search_ajax/', views.search_parents_ajax, name='search_parents_ajax'),
     # Si vous avez d'autres URL de dashboard ou des noms similaires, appliquez la même correction
     # Exemple si vous avez un 'admin-accounting-dashboard':
-    path('admin-accounting-dashboard/', AccountingDashboardView.as_view(), name='admin_accounting_dashboard'),
+    #path('admin-accounting-dashboard/', AccountingDashboardView.as_view(), name='admin_accounting_dashboard'),
     # GESTION DES UTILISATEURS (D irection)
     path('direction/users/', views.direction_manage_users, name='direction_manage_users'),
     path('direction/users/<int:user_id>/approve/', views.direction_approve_user, name='direction_approve_user'),
