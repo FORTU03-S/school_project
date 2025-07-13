@@ -30,39 +30,47 @@ class CustomAuthenticationForm(forms.Form):
     def get_user(self):
         return self.user_cache
 
-class ParentCreationForm(forms.ModelForm):
-    password = forms.CharField(widget=forms.PasswordInput, label="Mot de passe du Parent")
-    password_confirm = forms.CharField(widget=forms.PasswordInput, label="Confirmer le mot de passe")
+# Dans profiles/forms.py
 
+ # Assurez-vous que CustomUser est importé
+# Si UserRole est ailleurs, importez-le : from users.models import UserRole # Exemple
+
+class ParentCreationForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        # 1. Récupérez (pop) l'argument 'user_school' de kwargs AVANT d'appeler super()._init_()
+        self.user_school = kwargs.pop('user_school', None) # Le met dans une variable d'instance et le retire de kwargs
+
+        super().__init__(*args, **kwargs) # Passez le reste des arguments (y compris 'prefix') au parent
+
+        # 2. Utilisez self.user_school ici si vous avez besoin de filtrer ou de définir des valeurs initiales
+        # Par exemple, si ParentCreationForm a un champ 'school' que vous voulez pré-remplir ou cacher :
+        if self.user_school:
+            if 'school' in self.fields:
+                self.fields['school'].initial = self.user_school
+                # Vous pourriez aussi vouloir le cacher si l'utilisateur ne doit pas le modifier
+                # self.fields['school'].widget = forms.HiddenInput()
+                # self.fields['school'].required = False # Si vous le remplissez manuellement après
+            # Si le ParentCreationForm ne gère pas de champ 'school' directement (ce qui est probable
+            # puisque vous le définissez dans la vue: parent_user.school = user_school),
+            # alors cette partie if 'school' in self.fields n'est pas strictement nécessaire ici.
     class Meta:
         model = CustomUser
-        fields = ['first_name', 'last_name', 'email', 'phone_number', 'address']
-        labels = {
-            'first_name': "Prénom du Parent",
-            'last_name': "Nom du Parent",
-            'email': "Adresse Email du Parent",
-            'phone_number': "Téléphone du Parent",
-            'address': "Adresse du Parent",
-        }
-
-
-    def clean(self):
-        cleaned_data = super().clean()
-        password = cleaned_data.get("password")
-        password_confirm = cleaned_data.get("password_confirm")
-
-        if password and password_confirm and password != password_confirm:
-            self.add_error('password_confirm', "Les mots de passe ne correspondent pas.")
-        return cleaned_data
-
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        user.set_password(self.cleaned_data["password"])
-        user.user_type = UserRole.PARENT
-        user.is_approved = True
-        if commit:
-            user.save()
-        return user
+        fields = [
+            'first_name',
+            'last_name',
+            # 'middle_name',  <-- SUPPRIMER OU COMMENTER
+            'date_of_birth',
+            # 'gender',       <-- SUPPRIMER OU COMMENTER
+            'email',
+            'phone_number',
+            'address',
+            'profile_picture', # Si vous voulez que la photo de profil soit téléchargeable pour un parent
+            # N'incluez PAS 'school' ici si vous le définissez manuellement dans la vue.
+        ]
+        widgets = {
+            'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
+}
+    
 
 
 class TeacherRegistrationForm(forms.ModelForm):
@@ -107,12 +115,14 @@ class TeacherRegistrationForm(forms.ModelForm):
         return user
 
 
+# profiles/forms.py
+
 class StudentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         user_school = kwargs.pop('user_school', None)
         is_parent_form = kwargs.pop('is_parent_form', False)
-        
-        super().__init__(*args, **kwargs) 
+
+        super().__init__(*args, **kwargs)
         
         if 'student_id_code' in self.fields:
             self.fields['student_id_code'].widget = forms.HiddenInput()
@@ -120,25 +130,28 @@ class StudentForm(forms.ModelForm):
             self.fields['student_id_code'].help_text = "Sera généré automatiquement."
 
         if user_school:
+            # Définir l'école par défaut (et potentiellement la cacher)
+            if 'school' in self.fields:
+                self.fields['school'].initial = user_school
+                self.fields['school'].queryset = School.objects.filter(id=user_school.id) # S'assure que seule cette école est visible
+                # Ou si vous ne voulez pas qu'elle soit modifiable par l'utilisateur:
+                # self.fields['school'].widget = forms.HiddenInput()
+                # self.fields['school'].required = False # Si vous le remplissez manuellement après
+
             if 'current_classe' in self.fields:
                 self.fields['current_classe'].queryset = Classe.objects.filter(school=user_school).order_by('name')
-            
-            if 'parents' in self.fields:
-                del self.fields['parents']
 
         if is_parent_form:
-            if 'student_id_code' in self.fields:
-                self.fields['student_id_code'].widget = forms.HiddenInput()
-                self.fields['student_id_code'].required = False
+            # SUPPRIMEZ la ligne suivante :
+            # if 'parents' in self.fields:
+            #    del self.fields['parents']
 
             hidden_fields = ['school', 'current_classe', 'is_active', 'enrollment_date']
             for field in hidden_fields:
                 if field in self.fields:
                     self.fields[field].widget = forms.HiddenInput()
                     self.fields[field].required = False
-            
-            if 'parents' in self.fields:
-                del self.fields['parents']
+
 
     class Meta:
         model = Student
@@ -147,28 +160,46 @@ class StudentForm(forms.ModelForm):
             'date_of_birth', 'gender',
             'address', 'phone_number', # 'email',
             'profile_picture',
-            'student_id_code', 
+            'student_id_code',
             'school', 'current_classe',
             'is_active', 'enrollment_date',
+            # SUPPRIMEZ 'parents' de cette liste :
+            # 'parents',
         ]
-        #labels = {
-         #   'email': "Adresse Email de l'élève",
-        #}
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'enrollment_date': forms.DateInput(attrs={'type': 'date'}),
         }
 
+ 
+# Dans profiles/forms.py
+
+from django import forms
+from .models import CustomUser # Assurez-vous d'importer CustomUser
+# from school_app.models import School # Si School est dans une autre app
 
 class DirectionUserApprovalForm(forms.ModelForm):
     class Meta:
         model = CustomUser
-        fields = ['is_approved', 'user_type', 'school']
-        labels = {
-            'is_approved': "Approuvé",
-            'user_type': "Type d'utilisateur",
-            'school': "École Affiliée"
-        }
+        # Incluez UNIQUEMENT les champs que la direction est censée modifier ou valider lors de l'approbation.
+        # Le plus simple est juste 'is_approved'.
+        fields = ('is_approved',)
+        # Vous pouvez également rendre le champ 'is_approved' non modifiable directement par l'utilisateur
+        # si vous voulez que la vue seule le mette à jour.
+        # widgets = {
+        #     'is_approved': forms.CheckboxInput(attrs={'disabled': 'disabled'}),
+        # }
+
+    # Si vous devez modifier d'autres champs (comme l'école) via ce formulaire, vous pouvez les ajouter ici
+    # school = forms.ModelChoiceField(queryset=School.objects.all(), required=False) # Exemple
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Vous pouvez désactiver tous les autres champs ici si ce formulaire ne doit servir qu'à l'approbation
+        # for field_name, field in self.fields.items():
+        #     if field_name != 'is_approved':
+        #         field.widget.attrs['readonly'] = True
+        #         field.required = False # Rendre les autres champs non requis pour la validation
 
 
 #CustomUser = get_user_model()
@@ -452,23 +483,94 @@ class CourseForm(forms.ModelForm):
             self.save_m2m() # Important pour les champs ManyToMany (classes, teachers)
         return instance
 
-class TeacherCreationForm(forms.ModelForm): # Définissez cette classe
+class TeacherCreationForm(forms.ModelForm):
+    """
+    Formulaire pour créer un nouveau compte enseignant.
+    """
     password = forms.CharField(widget=forms.PasswordInput, help_text="Entrez le mot de passe de l'enseignant.")
+    password_confirm = forms.CharField(widget=forms.PasswordInput, label="Confirmer le mot de passe")
 
     class Meta:
         model = CustomUser
-        fields = ('first_name', 'last_name', 'email', 'password')
+        # Définissez les champs que vous voulez pour la création d'un enseignant
+        fields = ('first_name', 'last_name', 'email', 'phone_number', 'address', 'profile_picture', 'password')
 
-    
+    def __init__(self, *args, **kwargs):
+        # Gérer user_school si vous voulez que les enseignants soient créés dans une école spécifique
+        # Cela pourrait être l'école de l'administrateur qui crée l'enseignant.
+        self.user_school = kwargs.pop('user_school', None)
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get("password")
+        password_confirm = cleaned_data.get("password_confirm")
+
+        if password and password_confirm and password != password_confirm:
+            self.add_error('password_confirm', "Les mots de passe ne correspondent pas.")
+        
+        email = cleaned_data.get("email")
+        if email and CustomUser.objects.filter(email=email).exists():
+            self.add_error('email', "Cette adresse email est déjà utilisée.")
+        
+        return cleaned_data
 
     def save(self, commit=True, school=None):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data["password"])
-        user.user_type = 'TEACHER'
+        user.user_type = UserRole.TEACHER # Assurez-vous que TEACHER est un rôle valide dans UserRole
         if school:
             user.school = school
+        elif self.user_school: # Utiliser l'école passée lors de l'initialisation du formulaire
+            user.school = self.user_school
         if commit:
             user.save()
         return user
+    
+class ExistingParentForm(forms.Form):
+    """
+    Formulaire pour lier un élève à un parent existant via sa recherche.
+    Le champ 'parent_id' est caché et rempli par JS.
+    """
+    # Ce champ est pour stocker l'ID du parent sélectionné via AJAX/JS.
+    # Il est rendu requis au moment de la validation par le JS si l'onglet est actif.
+    parent_id = forms.ModelChoiceField(
+        queryset=CustomUser.objects.all(), # Le queryset complet sera filtré dans clean_parent_id
+        label="ID du parent sélectionné",
+        required=False, # Le JS le rendra requis si l'onglet est actif
+        widget=forms.HiddenInput # Ce champ est caché et rempli par JavaScript
+    )
+    # Champ visible pour la recherche (non validé directement par ce formulaire, mais utilisé par JS)
+    parent_search_term = forms.CharField(
+        max_length=255,
+        required=False, # Ce champ est pour l'affichage/recherche, pas pour la validation finale du formulaire
+        label="Rechercher un Parent Existant",
+        help_text="Tapez le nom, prénom ou email du parent."
+    )
 
-# ... (votre ClassAssignmentForm ici) ...
+    def __init__(self, *args, **kwargs):
+        # Récupérez 'user_school' des kwargs avant d'appeler super()._init_
+        self.user_school = kwargs.pop('user_school', None)
+        super().__init__(*args, **kwargs)
+
+        # Si vous vouliez pré-filtrer le queryset du ModelChoiceField (pour une liste déroulante),
+        # ce serait ici. Mais avec votre système d'autocomplétion JS, ce n'est pas nécessaire
+        # car le champ parent_id est un HiddenInput et est validé dans clean_parent_id.
+
+    def clean_parent_id(self):
+        parent_instance = self.cleaned_data.get('parent_id')
+
+        # Si le formulaire est soumis avec l'onglet "Sélectionner Parent Existant" actif,
+        # le champ 'parent_id' doit avoir une valeur. Le JS doit le rendre 'required'.
+        # Cette vérification est une validation secondaire côté serveur.
+        # Si 'parent_id' est rendu 'required' par le JS et que l'utilisateur n'a pas sélectionné
+        # ou si le JS n'a pas correctement rempli le champ caché, parent_instance sera None.
+        if not parent_instance:
+             # Cette erreur sera levée si l'ID n'est pas fourni ou est invalide
+            raise forms.ValidationError("Veuillez sélectionner un parent valide dans la liste.")
+
+        # Vérification cruciale : Assurez-vous que le parent sélectionné appartient à l'école de l'utilisateur connecté
+        if parent_instance.user_type != UserRole.PARENT or parent_instance.school != self.user_school:
+            raise forms.ValidationError("Le parent sélectionné est invalide ou n'appartient pas à votre école.")
+
+        return parent_instance

@@ -57,7 +57,8 @@ from .forms import (
     DisciplinaryRecordForm,# Ajouté pour la vue teacher_student_detail_view si besoin 
     CourseForm,
     AcademicPeriodForm,
-    TeacherCreationForm
+    TeacherCreationForm,
+    ExistingParentForm
     
 )
 from profiles.forms import ClasseForm
@@ -588,7 +589,7 @@ def direction_approve_user(request, user_id):
         if form.is_valid():
             form.save()
             messages.success(request, f"Le compte de {user_to_approve.full_name} a été mis à jour avec succès.")
-            return redirect('direction_manage_users')
+            return redirect('profiles:direction_manage_users')
         else:
             messages.error(request, "Erreur lors de la mise à jour du compte. Veuillez vérifier les champs.")
     else:
@@ -2933,132 +2934,103 @@ class ExistingParentWidget(s2forms.ModelSelect2Widget):
 # Vos modèles
 
 # Formulaire pour choisir un parent existant (simplifié pour JS)
-class ExistingParentForm(forms.Form):
-    # Ce champ existera côté client sous forme d'input text et hidden ID
-    # Ici, il valide simplement l'ID du parent
-    parent_id = forms.IntegerField(
-        required=False, # Pas requis si on crée un nouveau parent
-        widget=forms.HiddenInput # Ce champ sera caché et rempli par JS
-    )
-    # Champ visible pour la recherche (non validé par ce formulaire ici, mais par JS)
-    parent_search_term = forms.CharField(
-        max_length=255, 
-        required=False, 
-        label="Rechercher un Parent Existant"
-    )
 
-    def clean_parent_id(self):
-        parent_id = self.cleaned_data.get('parent_id')
-        if parent_id:
-            try:
-                # Vérifie que l'ID correspond bien à un CustomUser de type PARENT
-                # et potentiellement de la bonne école
-                parent = CustomUser.objects.get(
-                    id=parent_id, 
-                    user_type=UserRole.PARENT
-                    # school=self.initial.get('user_school') # Si vous voulez filtrer par école ici aussi
-                )
-                return parent # Retourne l'instance du parent pour l'utiliser dans la vue
-            except CustomUser.DoesNotExist:
-                raise forms.ValidationError("Parent sélectionné invalide.")
-        return None # Si aucun ID n'est fourni, pas d'erreur (s'il n'est pas requis)
 
-@login_required
-@user_passes_test(is_direction, login_url='/login/')
 def search_parents_ajax(request):
-    query = request.GET.get('term', '')
+    term = request.GET.get('term', '')
     user_school = request.user.school
 
-    if not query:
+    if not user_school:
         return JsonResponse([], safe=False)
-    
-        search_filter = (
-            Q(first_name__icontains=query) |
-            Q(last_name__icontains=query) |
-            Q(email__icontains=query)
-        )
 
-        parents = CustomUser.objects.filter(
-            user_type=UserRole.PARENT,
-            school=user_school
-        ).filter(search_filter).order_by('last_name', 'first_name')[:10]
-
-# ... (code juste après cette ligne, par exemple 'results = []')
-
-    # ... (reste de la fonction)
+    # Appel de filter() corrigé : l'objet Q comme premier argument positionnel
+    parents_found = CustomUser.objects.filter(
+        Q(first_name__icontains=term) |
+        Q(last_name__icontains=term) |
+        Q(email__icontains=term),  # <-- Notez la virgule ici, après l'objet Q combiné
+        user_type=UserRole.PARENT,
+        school=user_school
+    ).values('id', 'first_name', 'last_name')
 
     results = []
-    for parent in parents:
+    for parent in parents_found:
         results.append({
-            'id': parent.id,
-            'text': f"{parent.full_name} ({parent.email})" # Ce qui sera affiché à l'utilisateur
+            'id': parent['id'],
+            'text': f"{parent['first_name']} {parent['last_name']}"
         })
-    
     return JsonResponse(results, safe=False)
-# profiles/views.py (modifications dans la vue add_student_view)
-
-# ... (imports existants) ...
-
-# Assurez-vous d'importer ExistingParentForm si ce n'est pas déjà fait
-# from .forms import ExistingParentForm, ParentCreationForm
-# Ou si ExistingParentForm est défini dans la même vue, c'est bon.
 
 @login_required
-@user_passes_test(is_direction, login_url='/login/')
+@user_passes_test(is_direction, login_url='/login/') # Assurez-vous que 'login_url' est correct
 def add_student_view(request):
     user_school = request.user.school
-    
+
     if not user_school:
         messages.error(request, "Votre compte n'est affilié à aucune école. Veuillez contacter un administrateur.")
-        return redirect('some_error_page') 
+        # Rediriger vers une page d'erreur ou d'accueil appropriée
+        return redirect('some_error_page') # Remplacez 'some_error_page' par une URL valide
 
+    # Instanciation initiale des formulaires pour la requête GET ou le rendu initial
+    # TOUTES les instanciations reçoivent user_school ici
     student_form = StudentForm(user_school=user_school, prefix='student')
-    parent_creation_form = ParentCreationForm(prefix='new_parent')
-    existing_parent_form = ExistingParentForm(prefix='existing_parent')
+    parent_creation_form = ParentCreationForm(user_school=user_school, prefix='new_parent')
+    existing_parent_form = ExistingParentForm(user_school=user_school, prefix='existing_parent')
+
+    # Définir l'onglet actif par défaut pour la requête GET
+    active_tab = 'create_new'
 
     if request.method == 'POST':
         action_type = request.POST.get('action_type')
 
         student_form = StudentForm(request.POST, request.FILES, user_school=user_school, prefix='student')
 
+        # Instanciation conditionnelle des formulaires parent avec les données POST ou en tant que formulaires vides
+        if action_type == 'select_existing':
+            existing_parent_form = ExistingParentForm(request.POST, user_school=user_school, prefix='existing_parent')
+            # Le formulaire de création est vide si on sélectionne un parent existant
+            parent_creation_form = ParentCreationForm(user_school=user_school, prefix='new_parent')
+            active_tab = 'select_existing' # Maintenir l'onglet actif
+        elif action_type == 'create_new':
+            parent_creation_form = ParentCreationForm(request.POST, user_school=user_school, prefix='new_parent')
+            # Le formulaire existant est vide si on crée un nouveau parent
+            existing_parent_form = ExistingParentForm(user_school=user_school, prefix='existing_parent')
+            active_tab = 'create_new' # Maintenir l'onglet actif
+        else:
+            # Cas où aucun type d'action valide n'est sélectionné (par ex. si JS ne l'a pas envoyé)
+            messages.error(request, "Veuillez choisir de sélectionner un parent existant ou d'en créer un nouveau.")
+            # Assurez-vous que tous les formulaires sont passés au contexte, y compris user_school
+            context = {
+                'student_form': student_form,
+                'parent_creation_form': ParentCreationForm(user_school=user_school, prefix='new_parent'),
+                'existing_parent_form': ExistingParentForm(user_school=user_school, prefix='existing_parent'),
+                'title': "Ajouter un Nouvel Élève et son Parent",
+                'active_tab': active_tab # Restaure l'onglet actif (par défaut ou celui qui était censé être)
+            }
+            return render(request, 'profiles/add_student.html', context)
+
+        # Procéder à la validation et à la sauvegarde
         if student_form.is_valid():
             try:
                 with transaction.atomic():
-                    parent_to_link = None
-                    
+                    parent_to_link = None # Initialiser à None
+
                     if action_type == 'select_existing':
-                        existing_parent_form = ExistingParentForm(request.POST, prefix='existing_parent')
                         if existing_parent_form.is_valid():
-                            # Le clean_parent_id du formulaire retourne l'instance du parent
-                            parent_to_link = existing_parent_form.cleaned_data.get('parent_id') 
-                            if parent_to_link:
-                                messages.info(request, f"Parent existant ({parent_to_link.full_name}) sélectionné.")
-                            else:
-                                messages.error(request, "Veuillez sélectionner un parent existant.")
-                                # Si le parent_id est manquant mais l'action_type est 'select_existing', c'est une erreur.
-                                # Rendre le formulaire de sélection comme invalide pour afficher les erreurs
-                                existing_parent_form.add_error(None, "Veuillez sélectionner un parent.")
-                                context = {
-                                    'student_form': student_form,
-                                    'parent_creation_form': ParentCreationForm(prefix='new_parent'),
-                                    'existing_parent_form': existing_parent_form, # Renvoyer avec erreurs
-                                    'title': "Ajouter un Nouvel Élève et son Parent",
-                                    'active_tab': 'select_existing'
-                                }
-                                return render(request, 'profiles/add_student.html', context)
+                            parent_to_link = existing_parent_form.cleaned_data.get('parent_id')
+                            messages.info(request, f"Parent existant ({parent_to_link.full_name}) sélectionné.")
                         else:
-                            messages.error(request, "Erreur lors de la sélection du parent.")
+                            messages.error(request, "Erreur lors de la sélection du parent existant.")
+                            # Rendre le template avec les erreurs du formulaire existant
                             context = {
                                 'student_form': student_form,
-                                'parent_creation_form': ParentCreationForm(prefix='new_parent'),
-                                'existing_parent_form': existing_parent_form, # Renvoyer avec erreurs
+                                'parent_creation_form': parent_creation_form, # Formulaire de création vide
+                                'existing_parent_form': existing_parent_form, # Formulaire existant avec erreurs
                                 'title': "Ajouter un Nouvel Élève et son Parent",
-                                'active_tab': 'select_existing'
+                                'active_tab': active_tab
                             }
                             return render(request, 'profiles/add_student.html', context)
-                            
+
                     elif action_type == 'create_new':
-                        parent_creation_form = ParentCreationForm(request.POST, prefix='new_parent')
                         if parent_creation_form.is_valid():
                             parent_user = parent_creation_form.save(commit=False)
                             parent_user.school = user_school
@@ -3068,76 +3040,69 @@ def add_student_view(request):
                             messages.success(request, f"Nouveau parent ({parent_to_link.full_name}) créé.")
                         else:
                             messages.error(request, "Veuillez corriger les erreurs dans le formulaire de création du parent.")
+                            # Rendre le template avec les erreurs du formulaire de création
                             context = {
                                 'student_form': student_form,
-                                'parent_creation_form': parent_creation_form,
-                                'existing_parent_form': ExistingParentForm(prefix='existing_parent'),
+                                'parent_creation_form': parent_creation_form, # Formulaire de création avec erreurs
+                                'existing_parent_form': existing_parent_form, # Formulaire existant vide
                                 'title': "Ajouter un Nouvel Élève et son Parent",
-                                'active_tab': 'create_new'
+                                'active_tab': active_tab
                             }
                             return render(request, 'profiles/add_student.html', context)
-                    else:
-                        messages.error(request, "Veuillez choisir de sélectionner un parent existant ou d'en créer un nouveau.")
-                        context = {
-                            'student_form': student_form,
-                            'parent_creation_form': ParentCreationForm(prefix='new_parent'),
-                            'existing_parent_form': ExistingParentForm(prefix='existing_parent'),
-                            'title': "Ajouter un Nouvel Élève et son Parent",
-                            'active_tab': 'none_selected' # Ou un onglet par défaut
-                        }
-                        return render(request, 'profiles/add_student.html', context)
 
-
+                    # Si un parent a été sélectionné ou créé avec succès
                     if parent_to_link:
                         student = student_form.save(commit=False)
                         student.school = user_school
                         student.save()
-                        student.parents.add(parent_to_link) 
+                        student.parents.add(parent_to_link) # Lier l'élève au parent
 
                         messages.success(request, f"L'élève {student.full_name} a été ajouté avec succès et lié au parent {parent_to_link.full_name}.")
-                        return redirect('profiles:list_students')
+                        return redirect('profiles:list_students') # Redirigez vers la liste des élèves
                     else:
-                        messages.error(request, "Impossible de lier l'élève au parent. Vérifiez les informations.")
-                        # This else block should ideally not be reached if validation above is strict enough
+                        # Cas où le parent_to_link est toujours None (logique impossible si les validations ci-dessus sont strictes)
+                        messages.error(request, "Impossible de lier l'élève : aucun parent valide n'a été trouvé ou créé.")
                         context = {
                             'student_form': student_form,
-                            'parent_creation_form': parent_creation_form, # Keep errors if any
-                            'existing_parent_form': existing_parent_form, # Keep errors if any
+                            'parent_creation_form': parent_creation_form,
+                            'existing_parent_form': existing_parent_form,
                             'title': "Ajouter un Nouvel Élève et son Parent",
-                            'active_tab': action_type # Keep the active tab
+                            'active_tab': active_tab
                         }
                         return render(request, 'profiles/add_student.html', context)
 
             except Exception as e:
-                messages.error(request, f"Une erreur inattendue s'est produite lors de l'ajout de l'élève et du parent : {e}")
-                # log the exception for debugging
-                # import logging
-                # logger = logging.getLogger(_name_)
-                # logger.exception("Error adding student/parent")
+                # Log l'erreur pour le débogage serveur
+                logger.exception("Une erreur inattendue s'est produite lors de l'ajout de l'élève et du parent.")
+                messages.error(request, f"Une erreur inattendue s'est produite : {e}")
+                # Assurez-vous que les formulaires sont correctement passés au contexte en cas d'exception
                 context = {
                     'student_form': student_form,
                     'parent_creation_form': parent_creation_form,
                     'existing_parent_form': existing_parent_form,
                     'title': "Ajouter un Nouvel Élève et son Parent",
-                    'active_tab': action_type # Keep the active tab
+                    'active_tab': active_tab
                 }
                 return render(request, 'profiles/add_student.html', context)
-        else:
+        else: # student_form n'est pas valide
             messages.error(request, "Veuillez corriger les erreurs dans le formulaire de l'élève.")
+            # Les formulaires de parent (parent_creation_form, existing_parent_form)
+            # conservent leurs données et erreurs s'ils ont été instanciés avec request.POST.
+            # Sinon, ils sont déjà instanciés vides avec user_school.
             context = {
                 'student_form': student_form,
-                'parent_creation_form': ParentCreationForm(prefix='new_parent'),
-                'existing_parent_form': ExistingParentForm(prefix='existing_parent'),
+                'parent_creation_form': parent_creation_form,
+                'existing_parent_form': existing_parent_form,
                 'title': "Ajouter un Nouvel Élève et son Parent",
-                # No specific active_tab if student_form is invalid, as parent choice might not even have been made
+                'active_tab': active_tab
             }
             return render(request, 'profiles/add_student.html', context)
-    else:
+    else: # Requête GET (affichage initial du formulaire)
         context = {
             'student_form': student_form,
             'parent_creation_form': parent_creation_form,
             'existing_parent_form': existing_parent_form,
             'title': "Ajouter un Nouvel Élève et son Parent",
-            'active_tab': 'create_new'
+            'active_tab': active_tab # Par défaut, 'create_new'
         }
-    return render(request, 'profiles/add_student.html', context)
+        return render(request, 'profiles/add_student.html', context)

@@ -135,7 +135,9 @@
         const parentSuggestionsDiv = document.getElementById('parent-suggestions');
         const parentIdInput = document.getElementById('id_existing_parent-parent_id');
         let searchTimeout = null;
+        // Le CSRF_TOKEN est correctement récupéré
         const CSRF_TOKEN = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        // L'URL est correctement générée par Django
         const PARENT_SEARCH_URL = "{% url 'profiles:search_parents_ajax' %}";
 
         // Mettre à jour le champ caché 'action_type' en fonction de l'onglet actif
@@ -152,13 +154,17 @@
             // Cacher les suggestions quand l'onglet change
             parentSuggestionsDiv.innerHTML = '';
             parentSuggestionsDiv.style.display = 'none';
+            // Réinitialiser l'input de recherche et l'ID du parent quand on change d'onglet
+            parentSearchInput.value = '';
+            parentIdInput.value = '';
         });
 
         function toggleRequiredFields(prefix, isRequired) {
             const formContainer = document.getElementById(prefix === 'new_parent' ? 'create-new' : 'select-existing');
             if (formContainer) {
-                const passwordFields = formContainer.querySelectorAll('input[type="password"]');
-                passwordFields.forEach(field => {
+                // Gérer tous les champs input (text, email, password, etc.) sauf le hidden parent_id
+                const textInputs = formContainer.querySelectorAll('input:not([type="hidden"]), select, textarea');
+                textInputs.forEach(field => {
                     if (isRequired) {
                         field.setAttribute('required', 'required');
                     } else {
@@ -166,32 +172,33 @@
                     }
                 });
 
-                // Pour le champ caché de l'ID du parent existant (devient requis si on sélectionne)
-                if (parentIdInput) {
-                    if (prefix === 'existing_parent') { // Si c'est l'onglet de sélection
-                        if (isRequired) {
-                            // On ne rend pas l'input text de recherche 'required', mais l'input hidden 'parent_id'
-                            parentIdInput.setAttribute('required', 'required');
-                        } else {
-                            parentIdInput.removeAttribute('required');
-                        }
+                // Gérer spécifiquement le champ caché de l'ID du parent existant
+                if (parentIdInput && prefix === 'existing_parent') {
+                    if (isRequired) {
+                        // Le champ hidden 'parent_id' devient requis quand cet onglet est actif
+                        parentIdInput.setAttribute('required', 'required');
+                    } else {
+                        parentIdInput.removeAttribute('required');
+                        // Réinitialiser la validation personnalisée si le champ n'est plus requis
+                        parentSearchInput.setCustomValidity("");
                     }
                 }
             }
         }
 
         // Initialiser l'état des champs requis au chargement de la page
-        const activeTab = document.querySelector('.nav-tabs .nav-link.active');
-        if (activeTab && activeTab.id === 'create-new-tab') {
+        const activeTabElement = document.querySelector('.nav-tabs .nav-link.active');
+        if (activeTabElement && activeTabElement.id === 'create-new-tab') {
             toggleRequiredFields('new_parent', true);
             toggleRequiredFields('existing_parent', false);
-        } else if (activeTab && activeTab.id === 'select-existing-tab') {
+        } else if (activeTabElement && activeTabElement.id === 'select-existing-tab') {
             toggleRequiredFields('new_parent', false);
             toggleRequiredFields('existing_parent', true);
-        } else { // Par défaut si active_tab n'est pas défini (initialement 'create_new')
+        } else { // Par défaut si active_tab n'est pas défini (initialement 'create_new' dans la vue)
             toggleRequiredFields('new_parent', true);
             toggleRequiredFields('existing_parent', false);
         }
+
 
         // --- Logique d'Autocomplete pour les parents ---
         parentSearchInput.addEventListener('input', function() {
@@ -202,26 +209,31 @@
                 parentSuggestionsDiv.innerHTML = '';
                 parentSuggestionsDiv.style.display = 'none';
                 parentIdInput.value = ''; // Réinitialiser l'ID si la recherche est vide
+                parentSearchInput.setCustomValidity("Veuillez saisir au moins 2 caractères."); // Message d'erreur
+                parentSearchInput.reportValidity();
                 return;
+            } else {
+                parentSearchInput.setCustomValidity(""); // Effacer le message si assez de caractères
             }
 
             searchTimeout = setTimeout(() => {
-                // CORRECTION ICI : Utilisation correcte du template literal avec fetch
-                fetch(${PARENT_SEARCH_URL}?term=${encodeURIComponent(query)}, {
-                    method: 'GET', // Spécifier explicitement GET, bien que ce soit la valeur par défaut pour fetch sans corps
+                fetch(`${PARENT_SEARCH_URL}?term=${encodeURIComponent(query)}`, {
+                    method: 'GET',
                     headers: {
-                        'X-Requested-With': 'XMLHttpRequest', // Important pour Django is_ajax() (bien que déprécié, encore utile)
-                        // 'X-CSRFToken': CSRF_TOKEN // Pas nécessaire pour les requêtes GET sans données sensibles dans le corps
+                        'X-Requested-With': 'XMLHttpRequest',
                     }
                 })
                 .then(response => {
-                    if (!response.ok) { // Gérer les erreurs HTTP
-                        throw new Error(HTTP error! status: ${response.status});
+                    if (!response.ok) {
+                        // Log the error response body if available
+                        return response.text().then(text => {
+                            throw new Error(`HTTP error! status: ${response.status} - ${text}`);
+                        });
                     }
                     return response.json();
                 })
                 .then(data => {
-                    parentSuggestionsDiv.innerHTML = '';
+                    parentSuggestionsDiv.innerHTML = ''; // Nettoyer les suggestions précédentes
                     if (data.length > 0) {
                         data.forEach(parent => {
                             const item = document.createElement('a');
@@ -235,6 +247,7 @@
                                 parentIdInput.value = parent.id; // Stocke l'ID du parent
                                 parentSuggestionsDiv.innerHTML = '';
                                 parentSuggestionsDiv.style.display = 'none';
+                                parentSearchInput.setCustomValidity(""); // Effacer tout message d'erreur après sélection
                             });
                             parentSuggestionsDiv.appendChild(item);
                         });
@@ -245,12 +258,14 @@
                         noResult.textContent = "Aucun parent trouvé.";
                         parentSuggestionsDiv.appendChild(noResult);
                         parentSuggestionsDiv.style.display = 'block';
+                        parentIdInput.value = ''; // S'assurer que l'ID est vide si aucun résultat
                     }
                 })
                 .catch(error => {
                     console.error('Erreur lors de la recherche de parents:', error);
                     parentSuggestionsDiv.innerHTML = '<div class="list-group-item text-danger">Erreur de chargement des suggestions.</div>';
                     parentSuggestionsDiv.style.display = 'block';
+                    parentIdInput.value = ''; // S'assurer que l'ID est vide en cas d'erreur
                 });
             }, 300); // Délai de 300ms après la dernière frappe
         });
@@ -266,57 +281,68 @@
         // --- Gestion de la validation Bootstrap (et rechargement) ---
         const form = document.querySelector('.needs-validation');
         form.addEventListener('submit', event => {
-            form.classList.remove('was-validated');
+            form.classList.remove('was-validated'); // Toujours enlever avant de re-valider
             let formIsValid = true;
 
-            // Validation du formulaire élève
-            if (form.querySelector('[name^="student-"]:invalid')) {
+            // Vérifier que action_type a une valeur (devrait toujours être le cas avec la logique des onglets)
+            if (!actionTypeInput.value) {
+                messages.error(request, "Erreur interne: Le type d'action du formulaire est manquant.");
                 formIsValid = false;
             }
 
-            // Validation des champs de l'onglet actif
+            // Validation des formulaires côté client avec HTML5 (checkValidity)
+            // Valide les champs visibles et requis de l'élève
+            const studentInputs = form.querySelectorAll('[name^="student-"]:not([type="hidden"])');
+            studentInputs.forEach(input => {
+                if (!input.checkValidity()) {
+                    formIsValid = false;
+                    // input.reportValidity(); // Permet d'afficher l'erreur individuellement
+                }
+            });
+
+
             const activeTabPane = document.querySelector('.tab-pane.show.active');
             if (activeTabPane) {
-                const inputs = activeTabPane.querySelectorAll('[required]');
-                let allTabInputsValid = true;
-                inputs.forEach(input => {
+                // Validation des champs requis de l'onglet actif
+                // On inclut les selects et textareas, pas seulement les inputs
+                const activeTabInputs = activeTabPane.querySelectorAll('[required]:not([type="hidden"])');
+                activeTabInputs.forEach(input => {
                     if (!input.checkValidity()) {
-                        allTabInputsValid = false;
+                        formIsValid = false;
                     }
                 });
 
-                if (!allTabInputsValid) {
-                    formIsValid = false;
-                }
-
-                // Spécifique pour l'onglet de sélection de parent :
-                // Assurez-vous qu'un parent a été sélectionné si cet onglet est actif et requis
-                if (actionTypeInput.value === 'select_existing' && parentIdInput.hasAttribute('required')) {
-                    if (!parentIdInput.value) { // Si l'ID du parent est vide
+                // Validation spécifique pour l'onglet "Sélectionner Parent Existant"
+                if (actionTypeInput.value === 'select_existing') {
+                    if (parentIdInput.hasAttribute('required') && !parentIdInput.value) {
                         formIsValid = false;
-                        // Afficher une erreur visuelle ou un message
-                        parentSearchInput.setCustomValidity("Veuillez sélectionner un parent dans la liste.");
-                        parentSearchInput.reportValidity(); // Afficher le message d'erreur
-                    } else {
-                        parentSearchInput.setCustomValidity(""); // Réinitialiser si valide
+                        // Afficher une erreur visuelle ou un message sur le champ de recherche
+                        parentSearchInput.setCustomValidity("Veuillez sélectionner un parent dans la liste suggérée.");
+                        parentSearchInput.reportValidity();
+                    } else if (parentIdInput.hasAttribute('required') && parentIdInput.value) {
+                        // S'il y a un ID et qu'il est requis, effacer toute validation personnalisée
+                        parentSearchInput.setCustomValidity("");
                     }
                 }
             } else {
-                formIsValid = false; // Ne devrait pas arriver
+                formIsValid = false; // Un onglet devrait toujours être actif
+                console.error("Aucun onglet actif trouvé lors de la soumission.");
             }
 
             if (!formIsValid) {
-                event.preventDefault();
-                event.stopPropagation();
-                form.classList.add('was-validated');
+                event.preventDefault(); // Empêche la soumission du formulaire
+                event.stopPropagation(); // Arrête la propagation de l'événement
+                form.classList.add('was-validated'); // Ajoute la classe pour afficher les messages de validation Bootstrap
             } else {
                 // Si tout est valide, permet la soumission par défaut du formulaire
                 // Désactiver le bouton pour éviter les doubles soumissions
-                event.target.querySelector('button[type="submit"]').disabled = true;
-                event.target.querySelector('button[type="submit"]').innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Enregistrement...';
-                // Le formulaire se soumettra maintenant normalement au serveur
+                const submitButton = event.target.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Enregistrement...';
+                }
             }
         }, false);
     });
 </script>
-{% endblock %} 
+{% endblock %}

@@ -17,17 +17,17 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'une_cle_tres_longue_et_aleatoire_pour
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False # Mettez à False en production
 
-#ALLOWED_HOSTS = ['http://fortumanagement.onrender.com'] # Laissez vide pour le développement, ajoutez les noms de domaine en production (ex: ['mon-site.com', 'www.mon-site.com'])
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'fortu03.pythonanywhere.com'] # Laissez vide pour le développement, ajoutez les noms de domaine en production (ex: ['mon-site.com', 'www.mon-site.com'])
 
 
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'fortumanagement.onrender.com').split(',')
+#ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'fortumanagement.onrender.com').split(',')
 
 # Si vous avez DEBUG = True dans settings.py, même avec ALLOWED_HOSTS défini,
 # Django vérifiera toujours ce paramètre.
 # Pour le développement local, vous pouvez avoir une condition:
 # if DEBUG:
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+#ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 # Application definition
 

@@ -29,7 +29,9 @@ urlpatterns = [
     #path('accounting-dashboard/', AccountingDashboardView.as_view(), name='accounting_dashboard'),
     #path('send-notification/', AccountingDashboardView.as_view(), name='send_notification'),
     path('check-parent-email/', views.check_parent_email_ajax, name='check_parent_email_ajax'),
-    path('parents/search_ajax/', views.search_parents_ajax, name='search_parents_ajax'),
+    #path('parents/search_ajax/', views.search_parents_ajax, name='search_parents_ajax'),
+    path('ajax/search_parents/', views.search_parents_ajax, name='search_parents_ajax'),
+
     # Si vous avez d'autres URL de dashboard ou des noms similaires, appliquez la même correction
     # Exemple si vous avez un 'admin-accounting-dashboard':
     #path('admin-accounting-dashboard/', AccountingDashboardView.as_view(), name='admin_accounting_dashboard'),
