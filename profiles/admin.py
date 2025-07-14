@@ -101,6 +101,7 @@ class CustomUserAdmin(UserAdmin):
         )}),
     )
 
+
 # 2. StudentAdmin
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
@@ -140,8 +141,7 @@ class StudentAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {'fields': ( 'school', 'current_classe')}),
         (_('Informations personnelles'), {'fields': ('first_name', 'last_name', 'middle_name', 'date_of_birth', 'student_id_code')}),
-        (_('Statut'), {'fields': ('is_active', 'enrollment_date', 'parents')}),
-    )
+        (_('Statut'), {'fields': ('is_active', 'enrollment_date', 'parents')}))
 
 # 3. ParentAdmin
 @admin.register(Parent)

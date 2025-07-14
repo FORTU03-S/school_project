@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-lg p-4 mb-5 bg-white rounded">
+        <h1 class="card-title text-center mb-4 text-primary"><i class="bi bi-wallet-fill"></i> {{ title }}</h1>
+
+        {% if messages %}
+            <div class="mb-4">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" class="needs-validation" novalidate>
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.student.id_for_label }}" class="form-label">{{ form.student.label }}</label>
+                        {% render_field form.student class="form-select" %}
+                        {% if form.student.help_text %}
+                            <small class="form-text text-muted">{{ form.student.help_text }}</small>
+                        {% endif %}
+                        {% for error in form.student.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.fee_type.id_for_label }}" class="form-label">{{ form.fee_type.label }}</label>
+                        {% render_field form.fee_type class="form-select" %}
+                        {% if form.fee_type.help_text %}
+                            <small class="form-text text-muted">{{ form.fee_type.help_text }}</small>
+                        {% endif %}
+                        {% for error in form.fee_type.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.amount_paid.id_for_label }}" class="form-label">{{ form.amount_paid.label }}</label>
+                        {% render_field form.amount_paid class="form-control" %}
+                        {% if form.amount_paid.help_text %}
+                            <small class="form-text text-muted">{{ form.amount_paid.help_text }}</small>
+                        {% endif %}
+                        {% for error in form.amount_paid.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.payment_date.id_for_label }}" class="form-label">{{ form.payment_date.label }}</label>
+                        {% render_field form.payment_date class="form-control" %}
+                        {% if form.payment_date.help_text %}
+                            <small class="form-text text-muted">{{ form.payment_date.help_text }}</small>
+                        {% endif %}
+                        {% for error in form.payment_date.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
+                        {% render_field form.description class="form-control" %}
+                        {% if form.description.help_text %}
+                            <small class="form-text text-muted">{{ form.description.help_text }}</small>
+                        {% endif %}
+                        {% for error in form.description.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger mt-3">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="d-grid gap-2 mt-4">
+                <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-cash-stack"></i> Enregistrer Paiement</button>
+                <a href="{% url 'profiles:accounting_dashboard' %}" class="btn btn-secondary btn-lg"><i class="bi bi-arrow-left-circle"></i> Retour au Tableau de Bord</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{# Inclure le JS de Bootstrap si pas déjà fait dans base.html #}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Validation personnalisée (si nécessaire)
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
+</script>
+{% endblock %}

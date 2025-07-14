@@ -244,6 +244,7 @@
                                             <th>Statut</th>
                                             <th>Période</th> {# Shortened #}
                                             <th>Enregistré par</th>
+                                            <th>Reçu PDF</th> {# NOUVELLE COLONNE AJOUTÉE ICI #}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -262,6 +263,16 @@
                                                 </td>
                                                 <td>{{ payment.academic_period.name|default:"N/A" }}</td>
                                                 <td>{{ payment.recorded_by.get_full_name|default:payment.recorded_by.username }}</td>
+                                                {# AJOUT DE LA CELLULE POUR LE TÉLÉCHARGEMENT DU REÇU #}
+                                                <td>
+                                                    {% if payment.receipt_file %}
+                                                        <a href="{{ payment.receipt_file.url }}" class="btn btn-sm btn-primary" download>
+                                                            Télécharger
+                                                        </a>
+                                                    {% else %}
+                                                        <span class="text-muted">N/A</span>
+                                                    {% endif %}
+                                                </td>
                                             </tr>
                                         {% endfor %}
                                     </tbody>
@@ -276,12 +287,6 @@
 
                 </div> {# Fin tab-content #}
             </div> {# Fin card-body #}
-        </div> {# Fin card shadow #}
-
-        <div class="text-center mt-5 mb-5">
-            {#<a href="{% url 'profiles:parent_my_children_list' %}" class="btn btn-secondary btn-lg shadow-sm">#}
-               {# <i class="fas fa-arrow-left me-2"></i> Retour au Tableau de Bord#}
-            {#</a>#}
-        </div>
+        </div> {# Fin card shadow-lg #}
     </div> {# Fin container #}
-{% endblock content %}
+{% endblock %}

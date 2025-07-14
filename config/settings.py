@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',    # Pour CustomUser et UserProfile
     'school.apps.SchoolConfig', # Assurez-vous que SchoolConfig est correctement importé
-    'profiles',   
+    'profiles',
     'crispy_forms', # Pour les formulaires Bootstrap (si vous l'utilisez)
     'crispy_bootstrap5', # Pour le thème Bootstrap 5 avec Crispy Forms
     'widget_tweaks', # Pour les widgets améliorés (si vous l'utilisez)
@@ -119,7 +119,7 @@ DATABASES = {
  #        'USER': 'root',
  #""        'PASSWORD': 'fortu@2002MK',
  #        'HOST': 'localhost', # Ou l'adresse IP de votre serveur de base de données
- #        'PORT': '3306', # Port par défaut 
+ #        'PORT': '3306', # Port par défaut
   #""       'OPTIONS': {
   #           'init_command':"SET sql_mode='STRICT_TRANS_TABLES'"
  #        }
@@ -182,7 +182,7 @@ LOGGING = {
         'file_debug': {
             'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/debug.log', # Nous allons corriger le répertoire pour cela ci-dessous
+            'filename': 'debug.log', # Nous allons corriger le répertoire pour cela ci-dessous
             'maxBytes': 1024*1024*5, # 5 MB
             'backupCount': 5,
             'formatter': 'verbose',

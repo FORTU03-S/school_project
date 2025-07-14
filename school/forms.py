@@ -4,6 +4,7 @@ from django import forms
 from .models import  Classe, Course, Enrollment, Grade, Attendance, AcademicPeriod, Evaluation, Payment, FeeType, TuitionFee
 from profiles.models import CustomUser, UserRole, Student, Notification # Important: Assurez-vous que UserRole est importé ici
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 # Formulaire pour ajouter/modifier un élève
 
@@ -190,39 +191,72 @@ CustomUser = get_user_model()
 
 # Formulaire pour enregistrer un nouveau paiement
 class PaymentForm(forms.ModelForm):
+    student = forms.ModelChoiceField(
+        queryset=Student.objects.none(), # Le queryset sera défini dans _init_
+        label="Élève",
+        help_text="Sélectionnez l'élève pour lequel le paiement est effectué."
+    )
+    fee_type = forms.ModelChoiceField(
+        queryset=FeeType.objects.none(), # Le queryset sera défini dans _init_
+        label="Type de frais",
+        help_text="Sélectionnez le type de frais auquel ce paiement se rapporte."
+    )
+    payment_date = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+        label="Date du paiement",
+        initial=forms.DateField().widget.render(name='payment_date', value=None) # Pour pré-remplir avec la date du jour si possible
+    )
+    # Champ pour la preuve de paiement (facultatif, si vous en avez un)
+    # payment_proof = forms.FileField(
+    #     label="Preuve de paiement (reçu, scan)",
+    #     required=False,
+    #     help_text="Uploadez une image ou un PDF du reçu de paiement."
+    # )
+
     class Meta:
         model = Payment
-        fields = ['student', 'fee_type', 'amount_paid', 'payment_date', 'academic_period', 'transaction_id']
+        fields = ['student', 'fee_type', 'amount_paid', 'payment_date', 'description']
         widgets = {
-            'payment_date': forms.DateInput(attrs={'type': 'date'}),
+            'amount_paid': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
-    
+
     def __init__(self, *args, **kwargs):
-        print(f"DEBUG: [PaymentForm.__init__] Début, kwargs: {kwargs}")
-
-        # Retirer 'user' en premier
-        user = kwargs.pop('user', None)
-        print(f"DEBUG: [PaymentForm.__init__] Après pop 'user', kwargs: {kwargs}")
-
-        # Retirer 'school_id'
-        self.school_id = kwargs.pop('school_id', None)
-        print(f"DEBUG: [PaymentForm.__init__] Après pop 'school_id', kwargs: {kwargs}")
-
-        # Appeler le __init__ de la classe parente
+        school_id = kwargs.pop('school_id', None)
+        user = kwargs.pop('user', None) # L'utilisateur connecté est maintenant passé à la vue
         super().__init__(*args, **kwargs)
-        print("DEBUG: [PaymentForm.__init__] super().__init__ appelé avec succès.")
 
-        if self.school_id:
-            print(f"DEBUG: [PaymentForm.__init__] Filtrage des querysets pour school_id: {self.school_id}")
-            self.fields['student'].queryset = Student.objects.filter(school=self.school_id)
-            self.fields['fee_type'].queryset = FeeType.objects.filter(school=self.school_id) | FeeType.objects.filter(school__isnull=True)
-            self.fields['academic_period'].queryset = AcademicPeriod.objects.filter(school=self.school_id) | AcademicPeriod.objects.filter(school__isnull=True)
+        if school_id:
+            # Filtre les élèves et types de frais par l'école de l'utilisateur
+            self.fields['student'].queryset = Student.objects.filter(school_id=school_id).order_by('last_name', 'first_name')
+            self.fields['fee_type'].queryset = FeeType.objects.filter(school_id=school_id).order_by('name')
+        else:
+            # Optionnel: Désactiver les champs si pas d'école (devrait être géré par UserPassesTestMixin)
+            self.fields['student'].queryset = Student.objects.none()
+            self.fields['fee_type'].queryset = FeeType.objects.none()
 
-        if user:
-            pass # Gérer l'utilisateur si nécessaire
+        # Rendre le champ payment_date requis et définir la date du jour comme valeur par défaut
+        self.fields['payment_date'].required = True
+        if not self.initial.get('payment_date'):
+            self.initial['payment_date'] = timezone.now().date() # Import timezone from django.utils
 
 
-# Formulaire pour définir les frais de scolarité
+    def clean(self):
+        cleaned_data = super().clean()
+        student = cleaned_data.get('student')
+        amount_paid = cleaned_data.get('amount_paid')
+
+        # Ajoutez des validations personnalisées si nécessaire, par exemple:
+        # Vérifier que le montant n'est pas négatif (déjà géré par min='0' dans le widget, mais bon de vérifier)
+        if amount_paid is not None and amount_paid <= 0:
+            self.add_error('amount_paid', "Le montant payé doit être supérieur à zéro.")
+
+        # Assurez-vous que l'élève sélectionné appartient bien à l'école de l'utilisateur (double-vérification de sécurité)
+        # (Cette validation est implicitement gérée par le queryset, mais peut être explicite ici)
+        # if student and self.school_id and student.school_id != self.school_id:
+        #    raise forms.ValidationError("L'élève sélectionné n'appartient pas à votre école.")
+
+        return cleaned_data
 class TuitionFeeForm(forms.ModelForm):
     class Meta:
         model = TuitionFee
