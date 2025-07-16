@@ -21,3 +21,22 @@ db.sqlite3
 Thumbs.db # Windows
 /staticfiles/
 debug.log
+# Ignorer les fichiers de log
+debug.log
+
+# Ignorer les répertoires de médias uploadés
+/media/ # Ignorera tout le contenu du répertoire media à la racine du projet
+
+# Ignorer les environnements virtuels
+venv/
+venv310/ # Spécifique à votre nom d'environnement
+
+# Ignorer les répertoires de fichiers statiques collectés
+staticfiles/ # Nom courant
+school/static/ # Si c'est votre répertoire de fichiers statiques collectés par collectstatic
+
+# Ignorer les fichiers temporaires de Git
+FETCH_HEAD
+
+# Ignorer les dossiers de backup ou temporaires
+old_staticfiles_backup/
