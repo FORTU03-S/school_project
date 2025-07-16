@@ -6,6 +6,7 @@ from .models import CustomUser, Student, Parent, UserRole, Notification
 from school.models import Classe, School, AcademicPeriod, ClassAssignment, Course, Grade, Attendance, DisciplinaryRecord
 from django.db.models import Q
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.db import transaction
 
 # --- Formulaires d'authentification et d'inscription ---
 
@@ -36,41 +37,144 @@ class CustomAuthenticationForm(forms.Form):
 # Si UserRole est ailleurs, importez-le : from users.models import UserRole # Exemple
 
 class ParentCreationForm(forms.ModelForm):
+    # Ajout des champs mot de passe
+    password = forms.CharField(label="Mot de passe", widget=forms.PasswordInput)
+    password_confirm = forms.CharField(label="Confirmer le mot de passe", widget=forms.PasswordInput)
+
     def __init__(self, *args, **kwargs):
-        # 1. Récupérez (pop) l'argument 'user_school' de kwargs AVANT d'appeler super()._init_()
-        self.user_school = kwargs.pop('user_school', None) # Le met dans une variable d'instance et le retire de kwargs
+        # 1. Récupérez (pop) l'argument 'user_school' de kwargs AVANT d'appeler super().init()
+        # Nous allons utiliser cette 'user_school' lors de la sauvegarde du parent.
+        self.user_school = kwargs.pop('user_school', None) 
 
-        super().__init__(*args, **kwargs) # Passez le reste des arguments (y compris 'prefix') au parent
+        super().__init__(*args, **kwargs) # Passez le reste des arguments au parent
 
-        # 2. Utilisez self.user_school ici si vous avez besoin de filtrer ou de définir des valeurs initiales
-        # Par exemple, si ParentCreationForm a un champ 'school' que vous voulez pré-remplir ou cacher :
-        if self.user_school:
-            if 'school' in self.fields:
-                self.fields['school'].initial = self.user_school
-                # Vous pourriez aussi vouloir le cacher si l'utilisateur ne doit pas le modifier
-                # self.fields['school'].widget = forms.HiddenInput()
-                # self.fields['school'].required = False # Si vous le remplissez manuellement après
-            # Si le ParentCreationForm ne gère pas de champ 'school' directement (ce qui est probable
-            # puisque vous le définissez dans la vue: parent_user.school = user_school),
-            # alors cette partie if 'school' in self.fields n'est pas strictement nécessaire ici.
+        # 2. Utilisation de self.user_school (comme dans votre exemple initial)
+        # Si ParentCreationForm avait un champ 'school' directement, vous le pré-rempliriez ici.
+        # Puisque ce n'est pas le cas, nous utiliserons self.user_school dans la méthode save().
+        # La section suivante de votre code initial n'est donc pas strictement nécessaire pour ce formulaire
+        # car 'school' n'est pas un champ du formulaire ParentCreationForm.
+        # if self.user_school:
+        #     if 'school' in self.fields:
+        #         self.fields['school'].initial = self.user_school
+        #         self.fields['school'].widget = forms.HiddenInput()
+        #         self.fields['school'].required = False
+
     class Meta:
         model = CustomUser
         fields = [
             'first_name',
             'last_name',
-            # 'middle_name',  <-- SUPPRIMER OU COMMENTER
-            'date_of_birth',
-            # 'gender',       <-- SUPPRIMER OU COMMENTER
+            # 'middle_name',  # Si ce champ n'existe pas ou n'est pas utilisé, retirez-le
+            # 'date_of_birth', # Si un parent a une date de naissance, gardez-le. Sinon, retirez-le.
+            # 'gender',        # Si un parent a un genre, gardez-le. Sinon, retirez-le.
             'email',
             'phone_number',
             'address',
-            'profile_picture', # Si vous voulez que la photo de profil soit téléchargeable pour un parent
-            # N'incluez PAS 'school' ici si vous le définissez manuellement dans la vue.
+            'profile_picture', # Gardez si vous voulez une photo de profil pour le parent
+            # N'incluez PAS 'school' ici, car elle sera gérée via 'user_school' et attribuée dans la save().
+        ]
+        widgets = {
+            'date_of_birth': forms.DateInput(attrs={'type': 'date'}), # Retirez si 'date_of_birth' n'est pas dans fields
+        }
+
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        # Vérifier si l'email existe déjà et s'il est de type PARENT
+        try:
+            existing_user = CustomUser.objects.get(email=email)
+            # Si l'utilisateur existe déjà, et que c'est l'instance que nous éditons, pas de problème.
+            # Ou si c'est un parent et non pas un autre type d'utilisateur.
+            if self.instance.pk and existing_user.pk == self.instance.pk:
+                pass # C'est la même instance que nous éditons.
+            elif existing_user.user_type != 'PARENT':
+                raise ValidationError(f"Un utilisateur avec cet email ({email}) existe déjà, mais ce n'est pas un parent. Veuillez utiliser un autre email ou contacter l'administrateur.")
+            # Si c'est un parent existant, on ne lève pas d'erreur ici, on le gérera dans la save()
+        except CustomUser.DoesNotExist:
+            pass # L'email n'existe pas encore, c'est bon pour une nouvelle création.
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get("password")
+        password_confirm = cleaned_data.get("password_confirm")
+
+        if password and password_confirm and password != password_confirm:
+            self.add_error('password_confirm', "Les mots de passe ne correspondent pas.")
+        
+        # Le mot de passe doit être non vide si fourni
+        if password and not password.strip():
+            self.add_error('password', "Le mot de passe ne peut pas être vide.")
+
+        # Si c'est une nouvelle création de parent (pas de PK pour l'instance du formulaire)
+        # et que l'email n'existe pas encore dans la base de données pour un CustomUser
+        email = cleaned_data.get('email')
+        if not self.instance.pk and email and not CustomUser.objects.filter(email=email).exists():
+            if not password:
+                self.add_error('password', "Le mot de passe est requis pour la création d'un nouveau compte parent.")
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        # Utiliser une transaction atomique pour garantir l'intégrité
+        with transaction.atomic():
+            email = self.cleaned_data['email']
+            password = self.cleaned_data.get('password')
+
+            parent_user = None
+            created = False
+
+            # Tente de récupérer l'utilisateur existant
+            try:
+                parent_user = CustomUser.objects.get(email=email)
+                created = False
+                # Mettre à jour les informations du parent existant
+                parent_user.first_name = self.cleaned_data['first_name']
+                parent_user.last_name = self.cleaned_data['last_name']
+                parent_user.phone_number = self.cleaned_data['phone_number']
+                parent_user.address = self.cleaned_data.get('address') # Mettre à jour l'adresse
+                # Mettre à jour la photo de profil si le champ est géré par le formulaire et la vue
+                if 'profile_picture' in self.cleaned_data and self.cleaned_data['profile_picture']:
+                    parent_user.profile_picture = self.cleaned_data['profile_picture']
+
+                if password: # Si un nouveau mot de passe est fourni, le mettre à jour
+                    parent_user.set_password(password)
+                parent_user.save()
+
+            except CustomUser.DoesNotExist:
+                created = True
+                # Créer un nouveau parent
+                parent_user = CustomUser(
+                    email=email,
+                    first_name=self.cleaned_data['first_name'],
+                    last_name=self.cleaned_data['last_name'],
+                    phone_number=self.cleaned_data['phone_number'],
+                    address=self.cleaned_data.get('address'), # Définir l'adresse
+                    profile_picture=self.cleaned_data.get('profile_picture'), # Définir la photo
+                    user_type='PARENT',
+                    school=self.user_school # <-- Utilisez self.user_school passé à _init_
+                )
+                
+                # Le mot de passe est obligatoire pour la création, vérifié par clean()
+                parent_user.set_password(password)
+                parent_user.save()
+            
+            return parent_user # Retourne l'instance du parent (nouvelle ou existante)
+# --- Formulaire de l'Élève (simplifié) ---
+class StudentForm(forms.ModelForm):
+    class Meta:
+        model = Student
+        # Retirez tous les champs liés au parent de ce formulaire
+        fields = [
+            'first_name', 'last_name', 'date_of_birth', 'gender', 'enrollment_date',
+            'current_classe'
         ]
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
-}
-    
+            'admission_date': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+    # La méthode save de StudentForm n'aura plus besoin de gérer le parent
+    # La liaison se fera dans la vue.
 
 
 class TeacherRegistrationForm(forms.ModelForm):

@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
  # REMPLACEZ CECI PAR UNE VRAIE CLÉ EN PROD !
 SECRET_KEY = os.environ.get('SECRET_KEY', 'une_cle_tres_longue_et_aleatoire_pour_le_dev_seulement')
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False # Mettez à False en production
+DEBUG = True # Mettez à False en production
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'fortu03.pythonanywhere.com'] # Laissez vide pour le développement, ajoutez les noms de domaine en production (ex: ['mon-site.com', 'www.mon-site.com'])
 

@@ -10,6 +10,7 @@ from django.core.files.base import ContentFile
 import base64 # Pour l'encodage du PDF si on l'envoie directement
 import uuid # Pour le numéro de reçu unique
 import random
+from decimal import Decimal
 import string
 import os # Pour les chemins de fichiers
 from django.conf import settings
@@ -17,6 +18,7 @@ from django.core.mail import EmailMessage
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 import json
+from django.http import HttpResponse, Http404
 
 # Imports pour le PDF
 from reportlab.lib.pagesizes import letter
@@ -25,7 +27,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_RIGHT, TA_CENTER
 from reportlab.lib import colors
 logger = logging.getLogger(__name__)
-#from .chart_generator import ChartGenerator
+from .chart_generator import ChartGenerator
 from datetime import datetime
 #from profiles.chart_generator import ChartGenerator
 from django.shortcuts import render, redirect, get_object_or_404
@@ -3106,15 +3108,7 @@ def add_student_view(request):
             'active_tab': active_tab # Par défaut, 'create_new'
         }
         return render(request, 'profiles/add_student.html', context)
-def generate_receipt_pdf(payment):
-    print(f"Génération de PDF pour le paiement {payment.id}")
-    # Simuler la création d'un fichier PDF
-    temp_dir = 'temp_receipts'
-    os.makedirs(temp_dir, exist_ok=True)
-    file_path = os.path.join(temp_dir, f"receipt_{payment.receipt_number}.pdf")
-    with open(file_path, 'w') as f:
-        f.write(f"Reçu de paiement pour {payment.student.full_name}, Montant: {payment.amount_paid}")
-    return file_path
+
 
 def send_notification_to_user(recipient_user, subject, message_body, email_template, context, attachments=None):
     print(f"Envoi d'email à {recipient_user.email}: {subject}")
@@ -3212,9 +3206,56 @@ class PaymentCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             messages.success(self.request, f"Paiement de {payment.amount_paid}$ enregistré avec succès ! Reçu #{payment.receipt_number}")
 
             try:
-                pdf_path = generate_receipt_pdf(payment)
-                payment.receipt_file.name = os.path.join('receipts', os.path.basename(pdf_path))
-                payment.save(update_fields=['receipt_file'])
+                # 1. Appeler votre fonction qui génère le PDF dans le dossier temporaire
+                pdf_path = generate_receipt_pdf(payment) # Cette fonction doit retourner le chemin COMPLET du fichier généré (ex: C:\...\temp_receipts\REC-XYZ.pdf)
+
+                print(f"DEBUG: PDF généré à l'emplacement temporaire : {pdf_path}")
+                if not os.path.exists(pdf_path):
+                    raise FileNotFoundError(f"Le fichier PDF n'a pas été trouvé à {pdf_path} après génération.")
+                print(f"DEBUG: Taille du fichier PDF temporaire : {os.path.getsize(pdf_path)} octets")
+
+                # 2. Ouvrir le fichier PDF temporaire en mode binaire lecture
+                with open(pdf_path, 'rb') as pdf_file_handle:
+                    file_content_bytes = pdf_file_handle.read()
+                    
+                    # 3. Sauvegarder le contenu du fichier dans le FileField de Django
+                    #    C'est cette ligne qui fait le travail de copier le fichier
+                    #    dans MEDIA_ROOT/receipts/ (ou l'upload_to de votre FileField)
+                    #    et de mettre à jour le chemin dans l'objet 'payment'.
+                    django_filename = os.path.basename(pdf_path) # Récupère juste le nom du fichier (ex: 'receipt_REC-xxx.pdf')
+                    payment.receipt_file.save(django_filename, ContentFile(file_content_bytes))
+                    
+                    # NOTE IMPORTANTE : Après payment.receipt_file.save(), vous n'avez PLUS besoin de faire payment.save()
+                    # Si vous faites payment.save(update_fields=['receipt_file']), cela ne fera que resauvegarder l'objet
+                    # en base de données avec le chemin mis à jour PAR la méthode .save() du FileField.
+                    # Le .save() du FileField met déjà à jour l'instance du modèle et la base de données.
+                    # Cependant, pour être sûr, on peut laisser le payment.save() après si d'autres champs doivent être mis à jour,
+                    # ou si on veut s'assurer que le chemin est bien persistant.
+                    # Dans ce cas, comme le save() du FileField est sensé faire le travail, on peut le supprimer si rien d'autre n'est à updater.
+                    # Si vous l'aviez après votre première génération de payment.save(), il est superflu,
+                    # mais il ne fait pas de mal s'il n'y a pas de problème de performance.
+                    # La ligne importante était d'appeler payment.receipt_file.save() avec ContentFile.
+
+                print(f"DEBUG: Fichier PDF sauvegardé dans le FileField de Django.")
+                print(f"DEBUG: Chemin final du fichier dans MEDIA_ROOT : {payment.receipt_file.path}")
+                print(f"DEBUG: URL pour le téléchargement : {payment.receipt_file.url}")
+                print(f"DEBUG: Le fichier existe-t-il physiquement dans MEDIA_ROOT après l'opération ? {os.path.exists(payment.receipt_file.path)}")
+
+                # IMPORTANT pour le comptable :
+                # Si le comptable doit conserver une copie dans C:\Users\user\school_project\temp_receipts\,
+                # NE PAS supprimer le fichier ici.
+                # Sinon, si ce dossier n'est qu'un temporaire, vous pouvez le supprimer :
+                # if os.path.exists(pdf_path):
+                #     os.remove(pdf_path)
+                #     print(f"DEBUG: Fichier temporaire supprimé : {pdf_path}")
+                # Comme vous avez dit que le comptable doit rester avec une copie,
+                # nous laissons le fichier dans temp_receipts_root.
+
+                # ... (le reste de votre code pour l'envoi d'email, etc.)
+                # Assurez-vous que l'attachement dans send_notification_to_user utilise le chemin TEMPORAIRE,
+                # car le fichier est encore là pour cet envoi.
+                # attachments=[(pdf_path, f"Reçu_{payment.receipt_number}.pdf", 'application/pdf')]
+                # C'est parfait, vous utilisez déjà `pdf_path` pour l'attachement, ce qui est correct.
 
                 student = payment.student
                 if student.parents.exists():
@@ -3512,14 +3553,13 @@ class AccountingDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
 
                 # --- Automatisation : Générer et envoyer le reçu PDF ---
                 try:
-                    pdf_path = generate_receipt_pdf(payment) # Assurez-vous que cette fonction est bien définie et importée
-                    # Chemin pour le fichier dans le stockage Django (MEDIA_ROOT)
-                    relative_pdf_path = os.path.join('receipts', os.path.basename(pdf_path))
-                    payment.receipt_file.save(relative_pdf_path, open(pdf_path, 'rb'), save=True)
-                    
-                    # Supprimer le fichier temporaire après l'avoir enregistré dans le modèle
+                    pdf_path = generate_receipt_pdf(payment)
+                    filename = os.path.basename(pdf_path)
+                    with open(pdf_path, 'rb') as pdf_file:
+                        payment.receipt_file.save(filename, ContentFile(pdf_file_content.read()))
+                        
                     if os.path.exists(pdf_path):
-                        os.remove(pdf_path)
+                        os.remove(pdf_path) # Supprimer le fichier temporaire après l'enregistrement
 
                     # Envoyer le reçu au(x) parent(s) de l'élève
                     student = payment.student
@@ -3657,3 +3697,28 @@ class AccountingDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                 messages.error(request, f"Erreur lors de l'envoi de la notification : {e}")
 
         return redirect(reverse_lazy('profiles:accounting_dashboard')) # Redirige après un POST réussi
+def dashboard_charts_view(request):
+    user_school = request.user.school # Supposons que votre CustomUser a un lien vers l'école
+    
+    # Récupérer la période académique active ou la plus récente
+    current_academic_period = AcademicPeriod.objects.filter(school=user_school).order_by('-start_date').first()
+
+    charts = {}
+    
+    if user_school:
+        charts['students_by_class'] = ChartGenerator.generate_students_by_class_chart(user_school)
+        
+        if current_academic_period:
+            charts['grades_distribution'] = ChartGenerator.generate_grades_distribution_chart(user_school, current_academic_period)
+            charts['attendance_rate'] = ChartGenerator.generate_attendance_rate_chart(user_school, current_academic_period)
+            charts['payment_status'] = ChartGenerator.generate_payment_status_chart(user_school, current_academic_period)
+            charts['teacher_performance'] = ChartGenerator.generate_teacher_performance_chart(user_school, current_academic_period)
+            charts['class_comparison'] = ChartGenerator.generate_class_comparison_chart(user_school, current_academic_period)
+        
+        charts['monthly_payments'] = ChartGenerator.generate_monthly_payments_chart(user_school, datetime.now().year)
+    
+    context = {
+        'charts': charts,
+        'school_name': user_school.name if user_school else "Votre École"
+    }
+    return render(request, 'profiles/dashboard_charts.html', context)

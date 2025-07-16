@@ -174,7 +174,7 @@ class ChartGenerator:
         fig, ax = plt.subplots(figsize=(8, 8))
         
         payment_data = Payment.objects.filter(
-            school=school,
+            student__school=school,
             academic_period=academic_period
         ).values('payment_status').annotate(count=Count('payment_status'))
         
@@ -185,7 +185,7 @@ class ChartGenerator:
             
             for item in payment_data:
                 # Convertir le code en label lisible
-                status_dict = dict(Payment.payment_status_choices)
+                status_dict = dict(Payment.PAYMENT_STATUS_CHOICES)
                 labels.append(status_dict.get(item['payment_status'], item['payment_status']))
                 sizes.append(item['count'])
             
@@ -227,7 +227,7 @@ class ChartGenerator:
         
         for month in range(1, 13):
             total = Payment.objects.filter(
-                school=school,
+                student__school=school,
                 payment_date__year=year,
                 payment_date__month=month
             ).aggregate(total=Sum('amount_paid'))['total'] or 0

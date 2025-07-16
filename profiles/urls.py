@@ -49,7 +49,7 @@ urlpatterns = [
     #path('courses/', views.course_list, name='course_list'),
     path('classes/<int:classe_id>/courses/', views.course_list, name='class_courses'), # Ensure this is present if class-filtered courses are needed
     path('courses/', views.all_courses_view, name='course_list'),
-    #path('dashboard-charts/', views.dashboard_charts_view, name='dashboard_charts'),
+    path('dashboard-charts/', views.dashboard_charts_view, name='dashboard_charts'),
     # FONCTIONNALITÉS ENSEIGNANT
     path('teacher/students/', views.teacher_list_students_view, name='teacher_list_students_view'),
     path('teacher/enrollments/', views.teacher_manage_student_enrollments, name='teacher_manage_student_enrollments'),

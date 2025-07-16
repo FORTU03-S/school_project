@@ -1,0 +1,46 @@
+ERROR 2025-07-15 12:56:38,763 views 7884 15012 Erreur lors de la génération ou l'envoi du reçu pour le paiement 10: "Style 'Heading2' already defined in stylesheet"
+Traceback (most recent call last):
+  File "C:\Users\user\school_project\profiles\views.py", line 3320, in form_valid
+    pdf_path = generate_receipt_pdf(payment) # Cette fonction doit retourner le chemin COMPLET du fichier généré (ex: C:\...\temp_receipts\REC-XYZ.pdf)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\school_project\profiles\views.py", line 3129, in generate_receipt_pdf
+    styles.add(ParagraphStyle(name='Heading2', fontSize=14, fontName='Helvetica-Bold', spaceAfter=10))
+  File "C:\Users\user\school_project\venv\Lib\site-packages\reportlab\lib\styles.py", line 253, in add
+    raise KeyError("Style '%s' already defined in stylesheet" % key)
+KeyError: "Style 'Heading2' already defined in stylesheet"
+ERROR 2025-07-15 13:52:56,304 views 14328 16752 Une erreur inattendue s'est produite lors de l'ajout de l'élève et du parent.
+Traceback (most recent call last):
+  File "C:\Users\user\school_project\profiles\views.py", line 3037, in add_student_view
+    parent_user = parent_creation_form.save(commit=False)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\school_project\profiles\forms.py", line 95, in save
+    parent_email = self.cleaned_data['parent_email']
+                   ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'parent_email'
+ERROR 2025-07-15 13:55:51,076 views 13996 15832 Une erreur inattendue s'est produite lors de l'ajout de l'élève et du parent.
+Traceback (most recent call last):
+  File "C:\Users\user\school_project\profiles\views.py", line 3037, in add_student_view
+    parent_user = parent_creation_form.save(commit=False)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\school_project\profiles\forms.py", line 95, in save
+    parent_email = self.cleaned_data['']
+                   ~~~~~~~~~~~~~~~~~^^^^
+KeyError: ''
+ERROR 2025-07-15 13:56:31,462 views 5920 7284 Une erreur inattendue s'est produite lors de l'ajout de l'élève et du parent.
+Traceback (most recent call last):
+  File "C:\Users\user\school_project\profiles\views.py", line 3037, in add_student_view
+    parent_user = parent_creation_form.save(commit=False)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\school_project\profiles\forms.py", line 96, in save
+    parent_first_name = self.cleaned_data['parent_first_name']
+                        ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'parent_first_name'
+ERROR 2025-07-15 14:37:28,225 views 15768 13324 Une erreur inattendue s'est produite lors de l'ajout de l'élève et du parent.
+Traceback (most recent call last):
+  File "C:\Users\user\school_project\profiles\views.py", line 3037, in add_student_view
+    parent_user = parent_creation_form.save(commit=False)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\school_project\profiles\forms.py", line 118, in save
+    with transaction.atomic():
+         ^^^^^^^^^^^
+NameError: name 'transaction' is not defined
