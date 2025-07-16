@@ -20,3 +20,4 @@ db.sqlite3
 .DS_Store # macOS
 Thumbs.db # Windows
 /staticfiles/
+debug.log
