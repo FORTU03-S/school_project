@@ -1,6 +1,0 @@
-ERROR 2025-07-14 16:50:55,936 views 16092 16296 Erreur lors de la génération ou l'envoi du reçu pour le paiement 1: name 'send_notification_to_user' is not defined
-Traceback (most recent call last):
-  File "C:\Users\user\school_project\profiles\views.py", line 3202, in form_valid
-    send_notification_to_user(
-    ^^^^^^^^^^^^^^^^^^^^^^^^^
-NameError: name 'send_notification_to_user' is not defined
