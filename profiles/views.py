@@ -1,4 +1,5 @@
 # profiles/views.py
+from django.contrib.sessions.models import Session
 from django.db import models, IntegrityError
 import logging 
 from django.views.generic import TemplateView, CreateView
@@ -578,24 +579,63 @@ def direction_manage_users(request):
     }
     return render(request, 'profiles/direction_manage_users.html', context)
 
+
+
 @login_required
 @user_passes_test(is_direction, login_url='/login/')
 def direction_approve_user(request, user_id):
     user_to_approve = get_object_or_404(CustomUser, id=user_id)
+
     if user_to_approve.is_superuser or user_to_approve.is_staff:
         messages.error(request, "Vous ne pouvez pas modifier ce type de compte directement ici.")
-        return redirect('direction_manage_users')
+        return redirect('profiles:direction_manage_users')
 
     if request.method == 'POST':
-        form = DirectionUserApprovalForm(request.POST, instance=user_to_approve)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f"Le compte de {user_to_approve.full_name} a été mis à jour avec succès.")
-            return redirect('profiles:direction_manage_users')
+        # --- NOUVEAU : Lire la valeur de l'input caché 'action' ---
+        action_type = request.POST.get('action') 
+
+        if action_type == 'approve':
+            user_to_approve.is_approved = True
+            messages.success(request, f"Le compte de {user_to_approve.full_name} a été approuvé avec succès.")
+            # Si vous avez un champ 'is_rejected', assurez-vous de le définir à False ici aussi si nécessaire
+            # user_to_approve.is_rejected = False 
+
+        elif action_type == 'reject':
+            user_to_approve.is_approved = False # Définit le statut comme non approuvé (refusé)
+            messages.success(request, f"Le compte de {user_to_approve.full_name} a été refusé.")
+            # Si vous avez un champ 'is_rejected', assurez-vous de le définir à True ici si nécessaire
+            # user_to_approve.is_rejected = True
+
         else:
-            messages.error(request, "Erreur lors de la mise à jour du compte. Veuillez vérifier les champs.")
-    else:
-        form = DirectionUserApprovalForm(instance=user_to_approve)
+            # Ce bloc 'else' gère les cas où l'input 'action' n'est pas "approve" ou "reject"
+            # (par exemple, si un autre champ du formulaire était soumis sans passer par les boutons)
+            messages.error(request, "Action non reconnue. Veuillez spécifier Approuver ou Refuser.")
+            # Initialisez le formulaire pour le re-rendre avec les erreurs si besoin
+            form = DirectionUserApprovalForm(instance=user_to_approve) 
+            context = {
+                'form': form,
+                'user_to_approve': user_to_approve,
+                'title': f'Modifier {user_to_approve.full_name}',
+            }
+            return render(request, 'profiles/direction_approve_user.html', context)
+
+        user_to_approve.save() # Sauvegarde les modifications (is_approved=True ou False) en base de données
+
+        # Invalider les sessions de l'utilisateur approuvé/refusé (conservez cette partie)
+        try:
+            for session in Session.objects.filter(expire_date__gte=timezone.now()):
+                session_data = session.get_decoded()
+                if str(session_data.get('_auth_user_id')) == str(user_to_approve.id):
+                    session.delete()
+            # Le message de succès est déjà défini plus haut, on peut juste l'afficher ou l'améliorer ici
+            # messages.success(request, f"{message_text} Ses sessions actives ont été invalidées.") # Si message_text est défini
+        except Exception as e:
+            messages.warning(request, f"Le compte de {user_to_approve.full_name} a été mis à jour, mais une erreur est survenue lors de l'invalidation de ses sessions: {e}. Il devra peut-être attendre ou se reconnecter manuellement.")
+
+        return redirect('profiles:direction_manage_users')
+
+    else: # Requête GET (affichage initial du formulaire)
+        form = DirectionUserApprovalForm(instance=user_to_approve) 
 
     context = {
         'form': form,
@@ -603,20 +643,6 @@ def direction_approve_user(request, user_id):
         'title': f'Modifier {user_to_approve.full_name}',
     }
     return render(request, 'profiles/direction_approve_user.html', context)
-
-# --- Vues de gestion des assignations de classes pour la Direction ---
-# profiles/views.py
-
-# ... (le reste de votre code)
-
-
-def is_direction(user):
-    return user.is_authenticated and user.user_type == 'DIRECTION'
-
-CustomUser = get_user_model()
-
-def is_direction(user):
-    return user.is_authenticated and user.user_type == 'DIRECTION'
 
 @login_required
 @user_passes_test(is_direction, login_url='/login/')
@@ -1501,7 +1527,7 @@ def classe_create(request):
             classe.school = user.school # Assigne l'école de l'utilisateur à la classe
             classe.save() # Sauvegarde la classe dans la base de données
             messages.success(request, "La classe a été ajoutée avec succès.")
-            return redirect('profiles:classe_list') # Redirigez vers la liste des classes
+            return redirect('profiles:class_list') # Redirigez vers la liste des classes
         else:
             messages.error(request, "Erreur lors de l'ajout de la classe. Veuillez vérifier les informations.")
     else:
