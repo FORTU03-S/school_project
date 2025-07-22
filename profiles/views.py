@@ -2,6 +2,7 @@
 from django.contrib.sessions.models import Session
 from django.db import models, IntegrityError
 import logging 
+from django.views import View
 from django.views.generic import TemplateView, CreateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Sum, F, Q
@@ -29,7 +30,7 @@ from reportlab.lib.enums import TA_RIGHT, TA_CENTER
 from reportlab.lib import colors
 logger = logging.getLogger(__name__)
 from .chart_generator import ChartGenerator
-from datetime import datetime
+from datetime import datetime, timedelta
 #from profiles.chart_generator import ChartGenerator
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.forms import AuthenticationForm
@@ -43,7 +44,7 @@ from school.models import Enrollment, Evaluation, Grade, AcademicPeriod, Evaluat
 from django.forms import formset_factory, ModelForm, DateInput, CheckboxSelectMultiple
 from profiles.models import CustomUser, UserRole, Student # Assurez-vous que CustomUser et UserRole sont importés
 from  profiles.forms import Notification
-from school.models import School, TuitionFee
+from school.models import School, TuitionFee, FeeType
 from .models import CustomUser as User
 from django import forms
 from school.forms import EnrollmentForm, PaymentForm, FeeTypeForm, TuitionFeeForm
@@ -3344,169 +3345,115 @@ class PaymentCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         # Le formulaire est maintenant géré par get_form, pas besoin de le recréer ici
         return context
 
-class AccountingDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+class AccountingDashboardView(View):
     template_name = 'profiles/accounting_dashboard.html'
 
-    def test_func(self):
-        # Autoriser l'accès uniquement aux ADMIN, ACCOUNTANT, DIRECTION
-        return self.request.user.user_type in [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.DIRECTION]
+    def get_current_school(self, request):
+        """
+        Récupère l'école associée à l'utilisateur connecté.
+        Ceci suppose que votre modèle CustomUser a un lien vers une école.
+        """
+        if request.user.is_authenticated and hasattr(request.user, 'school') and request.user.school:
+            return request.user.school
+        return None
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        user = self.request.user
+    def get_context_data(self, request, current_school, **kwargs):
+        """
+        Prépare toutes les données nécessaires pour le contexte du template.
+        """
+        context = {}
         
-        # --- DÉBUT DES LIGNES DE DÉBOGAGE ---
-        print(f"\n--- DÉBUT DÉBOGAGE AccountingDashboardView.get_context_data ---")
-        print(f"DEBUG: Utilisateur connecté: {user.username} (ID: {user.id}), Type: {user.user_type}")
-        # --- FIN DES LIGNES DE DÉBOGAGE ---
-
-        current_school = user.school if hasattr(user, 'school') else None
-        context['current_school'] = current_school
-
-        # --- DÉBUT DES LIGNES DE DÉBOGAGE ---
-        print(f"DEBUG: École de l'utilisateur: {current_school.name if current_school else 'AUCUNE ÉCOLE'}")
-        # --- FIN DES LIGNES DE DÉBOGAGE ---
-
+        # Récupération de la période académique active
+        active_period = None
         if current_school:
-            try:
-                active_period = AcademicPeriod.objects.get(school=current_school, is_current=True)
-            except AcademicPeriod.DoesNotExist:
-                active_period = AcademicPeriod.objects.filter(school=current_school).order_by('-start_date').first()
-
+            # Tente de récupérer la période marquée comme "courante"
+            active_period = AcademicPeriod.objects.filter(school=current_school, is_current=True).first()
+            # Si aucune n'est "courante", prend la dernière par date de début
             if not active_period:
-                messages.warning(self.request, "Aucune période académique active ou définie pour votre école.")
-                # --- DÉBUT DES LIGNES DE DÉBOGAGE ---
-                print("DEBUG: Aucune période académique active trouvée pour l'école.")
-                print(f"--- FIN DÉBOGAGE AccountingDashboardView.get_context_data (early exit) ---")
-                # --- FIN DES LIGNES DE DÉBOGAGE ---
-                return context
+                active_period = AcademicPeriod.objects.filter(school=current_school).order_by('-start_date').first()
+        
+        context['active_academic_period'] = active_period
 
-            context['active_period'] = active_period
-            # --- DÉBUT DES LIGNES DE DÉBOGAGE ---
-            print(f"DEBUG: Période académique active: {active_period.name} (ID: {active_period.id})")
-            # --- FIN DES LIGNES DE DÉBOGAGE ---
-            
-            # --- Formulaires ---
-            context['payment_form'] = PaymentForm(school_id=current_school.id, user=user)
-            context['tuition_fee_form'] = TuitionFeeForm(school_id=current_school.id)
-            context['fee_type_form'] = FeeTypeForm() # Pour créer de nouveaux intitulés de frais
+        # Initialisation des formulaires avec school_id
+        # Assurez-vous que les formulaires soient passés même si la requête est GET,
+        # ou si une soumission de formulaire POST a échoué.
+        context['tuition_fee_form'] = TuitionFeeForm(school_id=current_school.id)
+        context['fee_type_form'] = FeeTypeForm()
+        context['payment_form'] = PaymentForm(school_id=current_school.id, user=request.user) # Le formulaire de paiement est ici mais il a sa propre vue normalement
 
-            # --- Calculs Généraux ---
-            payments_in_period = Payment.objects.filter(academic_period=active_period, student__school=current_school)
-            total_paid_for_school = payments_in_period.aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
-            context['total_paid_for_school'] = total_paid_for_school
 
-            expected_fees_by_classe = TuitionFee.objects.filter(
+        # Données pour les statistiques (à adapter à votre logique exacte)
+        if current_school and active_period:
+            # Calcul des frais dus pour l'école pour la période active
+            total_fees_due_for_school = TuitionFee.objects.filter(
+                classe__school=current_school,
+                academic_period=active_period
+            ).aggregate(Sum('amount'))['amount__sum'] or 0
+
+            # Calcul des paiements encaissés pour la période active
+            total_paid_for_school = Payment.objects.filter(
+                student__school=current_school,
                 academic_period=active_period,
-                classe__school=current_school
-            ).values('classe').annotate(
-                total_amount_per_classe=Sum('amount')
-            )
+                payment_status__in=['COMPLETED', 'PARTIAL', 'OVERPAID'] # Inclure tous les statuts qui représentent un encaissement
+            ).aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
 
-            total_expected_for_school = 0
-            for item in expected_fees_by_classe:
-                classe_id = item['classe']
-                fees_for_this_classe = item['total_amount_per_classe']
-                num_students_in_class = Student.objects.filter(
-                    current_classe_id=classe_id,
-                    academic_period=active_period,
-                    school=current_school
-                ).count()
-                total_expected_for_school += (fees_for_this_classe * num_students_in_class)
+            # Solde global actuel
+            context['remaining_balance_for_school'] = total_fees_due_for_school - total_paid_for_school
 
-            context['total_expected_for_school'] = total_expected_for_school
-            context['remaining_balance_for_school'] = total_expected_for_school - total_paid_for_school
+            # Paiements encaissés aujourd'hui
+            today = timezone.now().date()
+            context['total_paid_today'] = Payment.objects.filter(
+                student__school=current_school,
+                payment_date=today,
+                academic_period=active_period # Filtrer aussi par période académique si pertinent
+            ).aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
 
-            # --- Détails par Type de Frais ---
-            payments_by_fee_type = payments_in_period \
-                                .values('fee_type__name') \
-                                .annotate(total=Sum('amount_paid')) \
-                                .order_by('fee_type__name')
-            context['payments_by_fee_type'] = payments_by_fee_type
+            # Calcul du statut des paiements par élève (c'est une logique complexe, je l'ai laissée telle quelle)
+            # Cette partie peut être coûteuse en requêtes, considérez de l'optimiser.
+            student_payment_status = []
+            students_in_arrears_count = 0
+            students_overpaid_count = 0
 
-            # --- Statut des Paiements par Élève AVEC FILTRAGE ---
-            student_payment_status = [] # Ceci sera la liste finale pour le contexte du template
-
-            # Récupérer la classe sélectionnée depuis les paramètres GET
-            context['classes'] = Classe.objects.filter(school=current_school).order_by('name')
-            selected_class_id = self.request.GET.get('class_id')
+            students = Student.objects.filter(school=current_school, is_active=True).select_related('current_classe').prefetch_related('parents')
+            fee_types = FeeType.objects.filter(school=current_school) | FeeType.objects.filter(school__isnull=True)
             
-            # --- DÉBUT DES LIGNES DE DÉBOGAGE POUR LE FILTRE DE CLASSE ---
-            print(f"DEBUG: selected_class_id brut (depuis GET): '{selected_class_id}'")
-            # --- FIN DES LIGNES DE DÉBOGAGE POUR LE FILTRE DE CLASSE ---
+            # Construire un dictionnaire de frais de scolarité pour un accès rapide
+            # Clé: (classe_id, fee_type_id)
+            tuition_fees_map = {}
+            for tf in TuitionFee.objects.filter(classe__school=current_school, academic_period=active_period):
+                tuition_fees_map[(tf.classe_id, tf.fee_type_id)] = tf.amount
 
-            context['selected_class_id'] = int(selected_class_id) if selected_class_id else None
-            
-            # --- DÉBUT DES LIGNES DE DÉBOGAGE POUR LE FILTRE DE CLASSE ---
-            print(f"DEBUG: selected_class_id converti (int ou None): {context['selected_class_id']}")
-            # --- FIN DES LIGNES DE DÉBOGAGE POUR LE FILTRE DE CLASSE ---
+            for student in students:
+                fees_due_for_student = 0
+                amount_paid_by_student = 0
 
-            # Construction de la requête de base pour les élèves, AVANT d'appliquer le filtre de classe
-            # C'est cette requête qui doit retourner des résultats si des élèves existent dans l'école et la période active
-            base_students_query = Student.objects.filter(
-                school=current_school,
-                #academic_period=active_period
-            ).select_related('current_classe', 'user_account', 'school','academic_period').prefetch_related('parents')
-
-            # --- DÉBUT DES LIGNES DE DÉBOGAGE ---
-            print(f"DEBUG: Nombre d'élèves dans la requête de base (tous élèves de la période active SANS filtre de classe): {base_students_query.count()}")
-            # --- FIN DES LIGNES DE DÉBOGAGE ---
-
-            # La liste des élèves à traiter (soit tous, soit ceux d'une classe spécifique)
-            students_to_process = base_students_query 
-
-            if selected_class_id:
-                try:
-                    selected_class_instance = Classe.objects.get(id=selected_class_id, school=current_school)
-                    students_to_process = base_students_query.filter(current_classe=selected_class_instance)
-                    # --- DÉBUT DES LIGNES DE DÉBOGAGE ---
-                    print(f"DEBUG: Classe sélectionnée trouvée: '{selected_class_instance.name}' (ID: {selected_class_instance.id})")
-                    print(f"DEBUG: Nombre d'élèves après application du filtre de classe: {students_to_process.count()}")
-                    # --- FIN DES LIGNES DE DÉBOGAGE ---
-                except Classe.DoesNotExist:
-                    messages.warning(self.request, "La classe sélectionnée n'existe pas ou n'appartient pas à votre école. Affichage de tous les élèves.")
-                    # students_to_process reste base_students_query car l'ID était invalide.
-                    # --- DÉBUT DES LIGNES DE DÉBOGAGE ---
-                    print(f"DEBUG: ERREUR: Classe sélectionnée (ID: {selected_class_id}) introuvable ou n'appartient pas à l'école. Revert à tous les élèves de la période active.")
-                    # --- FIN DES LIGNES DE DÉBOGAGE ---
-            else:
-                # --- DÉBUT DES LIGNES DE DÉBOGAGE ---
-                print(f"DEBUG: Pas de classe sélectionnée. Traitement de tous les élèves de la période active (non filtrés).")
-                # --- FIN DES LIGNES DE DÉBOGAGE ---
-
-            # --- DÉBUT DES LIGNES DE DÉBOGAGE ---
-            print(f"DEBUG: Début de la boucle pour construire student_payment_status. Itérant sur {students_to_process.count()} élèves.")
-            # --- FIN DES LIGNES DE DÉBOGAGE ---
-
-            # Boucle pour calculer le statut de paiement pour CHAQUE élève dans students_to_process
-            for student in students_to_process:
-                # Montant total des frais que cet élève doit
-                fees_due_for_student = TuitionFee.objects.filter(
-                    academic_period=active_period,
-                    classe=student.current_classe,
-                    fee_type__school=current_school # Les types de frais doivent aussi être liés à l'école ou globaux
-                ).aggregate(Sum('amount'))['amount__sum'] or 0
-
-                # Montant total payé par cet élève
+                # Calculer les frais dus pour l'élève pour la période active
+                # Supposons que TuitionFee est défini par Classe, et l'élève a une current_classe
+                if student.current_classe:
+                    for fee_type in fee_types:
+                        fee_amount = tuition_fees_map.get((student.current_classe.id, fee_type.id), 0)
+                        fees_due_for_student += fee_amount
+                
+                # Calculer les paiements effectués par l'élève pour la période active
                 amount_paid_by_student = Payment.objects.filter(
+                    student=student, 
                     academic_period=active_period,
-                    student=student
+                    payment_status__in=['COMPLETED', 'PARTIAL', 'OVERPAID']
                 ).aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
 
                 remaining_balance = fees_due_for_student - amount_paid_by_student
                 
-                status_text = "À Jour"
-                status_class = "status-paid"
+                status_text = "Complet"
+                status_class = "bg-success"
                 if remaining_balance > 0:
-                    status_text = "Dû"
-                    status_class = "status-due"
+                    status_text = "En Attente"
+                    status_class = "bg-warning"
+                    students_in_arrears_count += 1
                 elif remaining_balance < 0:
-                    status_text = "Trop Payé"
-                    status_class = "status-overpaid"
+                    status_text = "Surpayé"
+                    status_class = "bg-primary" # Ou bg-info, bg-secondary
+                    students_overpaid_count += 1
 
-                # Récupérer les parents liés à cet élève
-                parents_list = list(student.parents.all())
-                
                 student_payment_status.append({
                     'student': student,
                     'fees_due': fees_due_for_student,
@@ -3514,215 +3461,291 @@ class AccountingDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateV
                     'remaining_balance': remaining_balance,
                     'status_text': status_text,
                     'status_class': status_class,
-                    'parents': parents_list
+                    'parents': list(student.parents.all()) # Pour afficher les parents
                 })
             
-            context['student_payment_status'] = sorted(student_payment_status, key=lambda x: x['remaining_balance'], reverse=True)
+            context['student_payment_status'] = student_payment_status
+            context['num_students_in_arrears'] = students_in_arrears_count
+            context['num_students_overpaid'] = students_overpaid_count
 
-            # --- DÉBUT DES LIGNES DE DÉBOGAGE ---
-            print(f"DEBUG: Nombre final d'éléments dans context['student_payment_status'] (pour le tableau): {len(context['student_payment_status'])}")
-            # --- FIN DES LIGNES DE DÉBOGAGE ---
-
-
-            # NOTE: La variable 'students_in_selected_class' est maintenant redondante
-            # si vous utilisez toujours 'student_payment_status' pour votre tableau principal.
-            # Cependant, si une autre partie de votre template l'utilise, vous pouvez la garder
-            # en la définissant comme ceci :
-            context['students_in_selected_class'] = students_to_process.order_by('last_name', 'first_name')
+            # Données pour les graphiques (Exemple, à ajuster si votre logique est différente)
+            # Évolution des Paiements (7 derniers jours)
+            payment_evolution_labels = []
+            payment_evolution_data = []
+            for i in range(7):
+                date = today - timezone.timedelta(days=6 - i)
+                payment_evolution_labels.append(date.strftime("%d %b"))
+                daily_total = Payment.objects.filter(
+                    student__school=current_school,
+                    payment_date=date,
+                    academic_period=active_period
+                ).aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
+                payment_evolution_data.append(float(daily_total))
             
-            # --- Frais de scolarité définis ---
-            context['tuition_fees_set'] = TuitionFee.objects.filter(
+            context['payment_evolution_labels'] = payment_evolution_labels
+            context['payment_evolution_data'] = payment_evolution_data
+
+            # Répartition des Sources de Revenu (par FeeType)
+            revenue_by_fee_type = Payment.objects.filter(
+                student__school=current_school,
                 academic_period=active_period,
-                classe__school=current_school
-            ).select_related('classe', 'academic_period', 'set_by', 'fee_type').order_by('classe__name', 'fee_type__name')
+                payment_status__in=['COMPLETED', 'PARTIAL', 'OVERPAID']
+            ).values('fee_type__name').annotate(total_amount=Sum('amount_paid')).order_by('fee_type__name')
 
-            # --- Derniers paiements ---
-            context['payments_list'] = payments_in_period.select_related('student', 'academic_period', 'recorded_by', 'fee_type').order_by('-payment_date')[:20]
+            fee_type_labels = [item['fee_type__name'] or "Inconnu" for item in revenue_by_fee_type]
+            fee_type_data = [float(item['total_amount']) for item in revenue_by_fee_type]
 
-        # --- DÉBUT DES LIGNES DE DÉBOGAGE DE FIN ---
-        print(f"--- FIN DÉBOGAGE AccountingDashboardView.get_context_data ---")
-        # --- FIN DES LIGNES DE DÉBOGAGE DE FIN ---
+            context['fee_type_labels'] = fee_type_labels
+            context['fee_type_data'] = fee_type_data
+
+            # Frais de Scolarité Définis
+            context['tuition_fees_set'] = TuitionFee.objects.filter(
+                classe__school=current_school,
+                academic_period=active_period
+            ).select_related('fee_type', 'classe').order_by('classe__name', 'fee_type__name')
+        
+            # CLASSES ET TYPES DE FRAIS POUR LES FILTRES
+            context['classes'] = Classe.objects.filter(school=current_school).order_by('name')
+            # Inclut les FeeTypes globaux (school__isnull=True) et ceux de l'école
+            context['fee_types'] = FeeType.objects.filter(school=current_school) | FeeType.objects.filter(school__isnull=True).order_by('name')
+
+
+        else:
+            # Cas où current_school ou active_period est None
+            context['remaining_balance_for_school'] = 0
+            context['total_paid_today'] = 0
+            context['total_paid_for_school'] = 0
+            context['num_students_in_arrears'] = 0
+            context['num_students_overpaid'] = 0
+            context['student_payment_status'] = []
+            context['payment_evolution_labels'] = []
+            context['payment_evolution_data'] = []
+            context['fee_type_labels'] = []
+            context['fee_type_data'] = []
+            context['tuition_fees_set'] = []
+            context['classes'] = []
+            context['fee_types'] = []
+            if not current_school:
+                messages.warning(request, "Veuillez associer votre compte à une école pour voir les données comptables.")
+            elif not active_period:
+                messages.warning(request, "Aucune période académique active ou définie pour votre école. Certaines données peuvent être manquantes.")
+
+
+        # Derniers Paiements Enregistrés (Limité à 10 pour ne pas encombrer)
+        context['payments_list'] = Payment.objects.filter(
+            student__school=current_school # Assurez-vous que cette relation est correcte
+        ).select_related('student', 'fee_type').order_by('-payment_date', '-id')[:10]
+
+
+        # Pour les filtres de la table Statut des Paiements par Élève
+        # Récupération des paramètres de filtre depuis la requête GET
+        selected_class_id = request.GET.get('class_id')
+        selected_payment_date = request.GET.get('payment_date')
+        selected_fee_type_id = request.GET.get('fee_type_id')
+
+        filtered_students_status = []
+        if current_school and active_period:
+            base_students_qs = Student.objects.filter(school=current_school, is_active=True).select_related('current_classe').prefetch_related('parents')
+
+            if selected_class_id:
+                base_students_qs = base_students_qs.filter(current_classe_id=selected_class_id)
+            
+            # Recalculer le statut pour les étudiants filtrés
+            tuition_fees_map_filtered = {}
+            if selected_fee_type_id:
+                # Si un type de frais est sélectionné, on ne prend que les tuition_fees de ce type
+                for tf in TuitionFee.objects.filter(classe__school=current_school, academic_period=active_period, fee_type_id=selected_fee_type_id):
+                    tuition_fees_map_filtered[(tf.classe_id, tf.fee_type_id)] = tf.amount
+            else:
+                tuition_fees_map_filtered = tuition_fees_map # Utiliser la map complète si pas de filtre spécifique
+
+            for student in base_students_qs:
+                fees_due_for_student = 0
+                amount_paid_by_student = 0
+
+                if student.current_classe:
+                    if selected_fee_type_id: # Si un type de frais est filtré
+                        fee_amount = tuition_fees_map_filtered.get((student.current_classe.id, int(selected_fee_type_id)), 0)
+                        fees_due_for_student += fee_amount
+                    else: # Si pas de filtre par type de frais
+                        for fee_type in fee_types:
+                            fee_amount = tuition_fees_map_filtered.get((student.current_classe.id, fee_type.id), 0)
+                            fees_due_for_student += fee_amount
+                
+                payments_qs = Payment.objects.filter(
+                    student=student, 
+                    academic_period=active_period,
+                    payment_status__in=['COMPLETED', 'PARTIAL', 'OVERPAID']
+                )
+
+                if selected_payment_date:
+                    payments_qs = payments_qs.filter(payment_date=selected_payment_date)
+                
+                if selected_fee_type_id:
+                    payments_qs = payments_qs.filter(fee_type_id=selected_fee_type_id)
+
+                amount_paid_by_student = payments_qs.aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
+                remaining_balance = fees_due_for_student - amount_paid_by_student
+                
+                status_text = "Complet"
+                status_class = "bg-success"
+                if remaining_balance > 0:
+                    status_text = "En Attente"
+                    status_class = "bg-warning"
+                elif remaining_balance < 0:
+                    status_text = "Surpayé"
+                    status_class = "bg-primary"
+
+                filtered_students_status.append({
+                    'student': student,
+                    'fees_due': fees_due_for_student,
+                    'amount_paid': amount_paid_by_student,
+                    'remaining_balance': remaining_balance,
+                    'status_text': status_text,
+                    'status_class': status_class,
+                    'parents': list(student.parents.all())
+                })
+        
+        context['student_payment_status'] = filtered_students_status # Remplace la liste non filtrée
+        context['selected_class_id'] = int(selected_class_id) if selected_class_id else None
+        context['selected_payment_date'] = selected_payment_date
+        context['selected_fee_type_id'] = int(selected_fee_type_id) if selected_fee_type_id else None
+
+
         return context
 
-    def post(self, request, *args, **kwargs):
-        user = request.user
-        current_school = user.school if hasattr(user, 'school') else None
-
+    def get(self, request, *args, **kwargs):
+        current_school = self.get_current_school(request)
         if not current_school:
-            messages.error(request, "Vous n'êtes associé à aucune école.")
-            return redirect(reverse_lazy('profiles:accounting_dashboard')) # Retourne toujours un redirect en cas d'erreur de base
+            messages.error(request, "Accès refusé. Vous devez être associé à une école pour accéder à ce tableau de bord.")
+            # Redirection vers une page d'accueil ou de configuration si l'utilisateur n'a pas d'école.
+            return redirect('core:home') # Assurez-vous que cette URL existe
 
-        # Récupérer la période académique active
-        try:
-            active_period = AcademicPeriod.objects.get(school=current_school, is_current=True)
-        except AcademicPeriod.DoesNotExist:
-            messages.error(request, "Aucune période académique active définie pour votre école. Impossible d'effectuer l'opération.")
-            return redirect(reverse_lazy('profiles:accounting_dashboard'))
+        context = self.get_context_data(request, current_school)
+        context['title'] = "Tableau de Bord Comptable"
+        return render(request, self.template_name, context)
 
-        # --- Gérer l'ajout d'un nouveau paiement ---
-        if 'add_payment' in request.POST:
-            payment_form = PaymentForm(request.POST, user=user, school_id=current_school.id)
-            if payment_form.is_valid():
-                payment = payment_form.save(commit=False)
-                payment.academic_period = active_period # Assigner la période active
-                payment.recorded_by = user # L'utilisateur connecté est celui qui enregistre
-                
-                # Générer un numéro de reçu unique
-                while True:
-                    receipt_number = f"REC-{uuid.uuid4().hex[:8].upper()}"
-                    if not Payment.objects.filter(receipt_number=receipt_number).exists():
-                        payment.receipt_number = receipt_number
-                        break
-                
-                payment.save()
-                messages.success(request, f"Paiement de {payment.amount_paid}$ enregistré avec succès ! Reçu #{payment.receipt_number}")
+    def post(self, request, *args, **kwargs):
+        current_school = request.user.school
 
-                # --- Automatisation : Générer et envoyer le reçu PDF ---
-                try:
-                    pdf_path = generate_receipt_pdf(payment)
-                    filename = os.path.basename(pdf_path)
-                    with open(pdf_path, 'rb') as pdf_file:
-                        payment.receipt_file.save(filename, ContentFile(pdf_file_content.read()))
-                        
-                    if os.path.exists(pdf_path):
-                        os.remove(pdf_path) # Supprimer le fichier temporaire après l'enregistrement
-
-                    # Envoyer le reçu au(x) parent(s) de l'élève
-                    student = payment.student
-                    if student.parents.exists():
-                        for parent_user in student.parents.all():
-                            email_subject = f"Reçu de paiement pour {student.full_name} - {payment.receipt_number}"
-                            email_context = {
-                                'student_name': student.full_name,
-                                'amount_paid': payment.amount_paid,
-                                'payment_date': payment.payment_date,
-                                'receipt_number': payment.receipt_number,
-                                'fee_type_name': payment.fee_type.name if payment.fee_type else 'Frais',
-                                'school_name': current_school.name,
-                                'parent_name': parent_user.full_name,
-                                'receipt_url': request.build_absolute_uri(payment.receipt_file.url) # URL du fichier sauvegardé
-                            }
-                            # Assurez-vous que send_notification_to_user gère les attachments
-                            send_notification_to_user(
-                                recipient_user=parent_user,
-                                subject=email_subject,
-                                message_body=f"Veuillez trouver ci-joint le reçu pour le paiement de {payment.amount_paid}$ pour {student.full_name}.",
-                                email_template='school/receipt_email_template.html', # Créez ce template si besoin
-                                context=email_context,
-                                # Note: Envoyer un fichier directement comme attachment nécessite une implémentation robuste de send_notification_to_user
-                                # Pour l'instant, le lien dans le template est plus simple si la fonction ne gère pas les pièces jointes
-                            )
-                        messages.info(request, "Reçu PDF généré et notification envoyée aux parents.")
-                    else:
-                        messages.warning(request, "Aucun parent n'est lié à cet élève pour l'envoi du reçu.")
-
-                except Exception as e:
-                    messages.error(request, f"Erreur lors de la génération ou l'envoi du reçu : {e}. Veuillez contacter l'administrateur.")
-                    # Supprimer le fichier de reçu si l'enregistrement a échoué après génération
-                    if payment.receipt_file and os.path.exists(payment.receipt_file.path):
-                        payment.receipt_file.delete(save=False) # Ne pas sauvegarder le modèle à nouveau
-                    print(f"ERROR: Erreur de génération/envoi de reçu: {e}") # Log d'erreur détaillé
-
-            else:
-                messages.error(request, "Erreur lors de l'enregistrement du paiement. Veuillez vérifier les informations.")
-                context = self.get_context_data() # Recharge le contexte avec les erreurs du formulaire
-                context['payment_form'] = payment_form # Passe le formulaire avec les erreurs
-                return render(request, self.template_name, context)
-
-        # --- Gérer la définition des frais de scolarité ---
-        elif 'set_tuition_fee' in request.POST:
+        # --- Gérer la soumission du formulaire de définition des frais de scolarité ---
+        if 'set_tuition_fee' in request.POST:
             tuition_fee_form = TuitionFeeForm(request.POST, school_id=current_school.id)
+            
+            # Récupérer la période académique active de l'école
+            # Assurez-vous que votre logique pour déterminer la période active est solide.
+            active_academic_period = AcademicPeriod.objects.filter(school=current_school, is_current=True).first()
+
             if tuition_fee_form.is_valid():
-                fee_type_instance = tuition_fee_form.cleaned_data['fee_type']
-                classe_instance = tuition_fee_form.cleaned_data['classe']
-                
-                existing_fee = TuitionFee.objects.filter(
-                    fee_type=fee_type_instance,
-                    classe=classe_instance,
-                    academic_period=active_period
-                ).first()
+                # Vérification si une période académique active existe
+                if not active_academic_period:
+                    messages.error(request, "Impossible de définir les frais : Aucune période académique active trouvée pour votre école. Veuillez en définir une.")
+                    context = self.get_context_data(request, current_school)
+                    context['tuition_fee_form'] = tuition_fee_form
+                    return render(request, self.template_name, context)
 
-                if existing_fee:
-                    existing_fee.amount = tuition_fee_form.cleaned_data['amount']
-                    existing_fee.set_by = user
-                    existing_fee.save()
-                    messages.success(request, f"Frais de scolarité mis à jour pour {classe_instance.name} ({fee_type_instance.name}).")
-                    tuition_fee = existing_fee
-                else:
-                    tuition_fee = tuition_fee_form.save(commit=False)
-                    tuition_fee.academic_period = active_period
-                    tuition_fee.set_by = user
-                    tuition_fee.save()
-                    messages.success(request, f"Nouveaux frais de scolarité définis pour {classe_instance.name} ({fee_type_instance.name}).")
-                
-                # --- Automatisation : Notifier les parents ---
-                students_in_classe = Student.objects.filter(current_classe=classe_instance, academic_period=active_period, school=current_school).prefetch_related('parents')
-                if students_in_classe.exists():
-                    notified_parents = set()
-                    email_subject = f"Nouveaux frais pour la classe {classe_instance.name}"
-                    email_template = 'profiles/fees_set_notification_email.html' # Créez ce template
+                try:
+                    # Créez une instance de TuitionFee mais ne la sauvegardez pas encore (commit=False)
+                    tuition_fee_instance = tuition_fee_form.save(commit=False)
                     
-                    for student in students_in_classe:
-                        if student.parents.exists():
-                            for parent_user in student.parents.all():
-                                if parent_user not in notified_parents:
-                                    email_context = {
-                                        'parent_name': parent_user.full_name,
-                                        'student_name': student.full_name,
-                                        'classe_name': classe_instance.name,
-                                        'fee_type_name': fee_type_instance.name,
-                                        'amount': tuition_fee.amount,
-                                        'academic_period_name': active_period.name,
-                                        'school_name': current_school.name,
-                                        'dashboard_url': request.build_absolute_uri(reverse_lazy('profiles:accounting_dashboard')) # Assurez-vous que le namespace est 'profiles'
-                                    }
-                                    send_notification_to_user(
-                                        recipient_user=parent_user,
-                                        subject=email_subject,
-                                        message_body=f"Les frais de {fee_type_instance.name} pour la classe {classe_instance.name} ont été fixés à {tuition_fee.amount}$.",
-                                        email_template=email_template,
-                                        context=email_context
-                                    )
-                                    notified_parents.add(parent_user)
-                    if notified_parents:
-                        messages.info(request, f"Notification envoyée à {len(notified_parents)} parent(s) pour les frais de {classe_instance.name}.")
-                    else:
-                        messages.warning(request, "Aucun parent trouvé pour les élèves de cette classe. Notification non envoyée.")
+                    # Définissez les champs qui ne sont pas directement dans le formulaire POST
+                    tuition_fee_instance.academic_period = active_academic_period
+                    tuition_fee_instance.set_by = request.user # L'utilisateur actuellement connecté
+                    # Si votre modèle TuitionFee a un champ 'school', assurez-vous de le définir également
+                    # tuition_fee_instance.school = current_school 
+                    # (Remarque : Si TuitionFee est déjà lié via Classe qui est liée à School, ce n'est peut-être pas nécessaire
+                    # mais c'est plus sûr de le mettre si vous avez un champ 'school' directement sur TuitionFee)
 
+                    tuition_fee_instance.save()
+                    messages.success(request, "Frais de scolarité définis/mis à jour avec succès!")
+                    return redirect('profiles:accounting_dashboard')
+                
+                except IntegrityError:
+                    # Capture spécifiquement l'erreur de contrainte unique
+                    messages.error(request, "Une définition de frais similaire (même type de frais, classe et période académique) existe déjà. Veuillez modifier ou mettre à jour l'entrée existante.")
+                    context = self.get_context_data(request, current_school)
+                    context['tuition_fee_form'] = tuition_fee_form
+                    return render(request, self.template_name, context)
+                except Exception as e:
+                    # Gérer d'autres erreurs inattendues
+                    messages.error(request, f"Une erreur inattendue est survenue lors de la définition des frais : {e}")
+                    context = self.get_context_data(request, current_school)
+                    context['tuition_fee_form'] = tuition_fee_form
+                    return render(request, self.template_name, context)
             else:
-                messages.error(request, "Erreur lors de la définition des frais. Veuillez vérifier les informations.")
-                context = self.get_context_data()
-                context['tuition_fee_form'] = tuition_fee_form
-                return render(request, self.template_name, context)
+                # Le formulaire n'est pas valide (autres champs manquants ou erreurs de type)
+                messages.error(request, "Erreur lors de la définition des frais. Veuillez vérifier les informations saisies.")
+                context = self.get_context_data(request, current_school)
+                context['tuition_fee_form'] = tuition_fee_form 
+                # Les erreurs spécifiques aux champs seront maintenant affichées par le template
+                return render(request, self.template_name, context)    
 
-        # --- Gérer la création d'un nouveau type de frais ---
+                try:
+                    # update_or_create gère la création ou la mise à jour si la combinaison existe
+                    tuition_fee, created = TuitionFee.objects.update_or_create(
+                        fee_type=fee_type,
+                        classe=classe,
+                        academic_period=active_period,
+                        defaults={'amount': amount, 'set_by': request.user}
+                    )
+                    if created:
+                        messages.success(request, f"Frais de '{fee_type.name}' pour la classe '{classe.name}' définis à {amount} $.")
+                    else:
+                        messages.info(request, f"Frais de '{fee_type.name}' pour la classe '{classe.name}' mis à jour à {amount} $.")
+                    return redirect('profiles:accounting_dashboard')
+
+                except IntegrityError:
+                    # Cette erreur est capturée si, pour une raison quelconque, la logique update_or_create échoue
+                    # ou si une contrainte unique non gérée par update_or_create est violée.
+                    # Pour unique_together, update_or_create gère déjà, mais c'est une bonne pratique de l'avoir
+                    messages.error(request, "Erreur : Des frais sont déjà définis pour cette combinaison de type de frais, classe et période académique.")
+                    context = self.get_context_data(request, current_school)
+                    context['tuition_fee_form'] = tuition_fee_form
+                    return render(request, self.template_name, context)
+                except Exception as e:
+                    messages.error(request, f"Une erreur inattendue est survenue lors de la définition des frais : {e}")
+                    context = self.get_context_data(request, current_school)
+                    context['tuition_fee_form'] = tuition_fee_form
+                    return render(request, self.template_name, context)
+                else:
+                # Si le formulaire n'est pas valide, repassez-le avec les erreurs
+                    messages.error(request, "Erreur lors de la définition des frais. Veuillez vérifier les informations saisies.")
+                    context = self.get_context_data(request, current_school)
+                    context['tuition_fee_form'] = tuition_fee_form # Repasser le formulaire pour que les erreurs de champ soient visibles
+                    return render(request, self.template_name, context)
+
+        # --- Gérer la soumission du formulaire d'ajout de type de frais ---
         elif 'add_fee_type' in request.POST:
-            fee_type_form = FeeTypeForm(request.POST)
+            fee_type_form = FeeTypeForm(request.POST) 
             if fee_type_form.is_valid():
                 new_fee_type = fee_type_form.save(commit=False)
-                new_fee_type.school = current_school
-                new_fee_type.save()
-                messages.success(request, f"Type de frais '{new_fee_type.name}' ajouté avec succès.")
+                new_fee_type.school = current_school # Assigner l'école actuelle
+                try:
+                    new_fee_type.save()
+                    messages.success(request, f"Le type de frais '{new_fee_type.name}' a été ajouté avec succès.")
+                    return redirect('profiles:accounting_dashboard')
+                except IntegrityError:
+                    messages.error(request, f"Un type de frais avec l'intitulé '{new_fee_type.name}' existe déjà. L'intitulé doit être unique.")
+                except Exception as e:
+                    messages.error(request, f"Une erreur inattendue est survenue lors de l'ajout du type de frais : {e}")
             else:
-                messages.error(request, "Erreur lors de l'ajout du type de frais. Veuillez vérifier les informations.")
-                context = self.get_context_data()
-                context['fee_type_form'] = fee_type_form
-                return render(request, self.template_name, context)
+                messages.error(request, "Erreur lors de l'ajout du type de frais. Veuillez vérifier les informations saisies.")
 
-        # --- Gérer l'envoi de notification manuelle aux parents (si toujours dans le template) ---
-        elif 'recipient_user_id' in request.POST and 'message' in request.POST:
-            recipient_id = request.POST.get('recipient_user_id')
-            message_content = request.POST.get('message')
-            try:
-                recipient_user = CustomUser.objects.get(id=recipient_id)
-                send_notification_to_user(recipient_user, "Notification de l'école", message_content)
-                messages.success(request, f"Notification envoyée à {recipient_user.full_name}.")
-            except CustomUser.DoesNotExist:
-                messages.error(request, "Destinataire de la notification introuvable.")
-            except Exception as e:
-                messages.error(request, f"Erreur lors de l'envoi de la notification : {e}")
+            # Si le formulaire n'est pas valide ou qu'une erreur a eu lieu, repassez le formulaire avec les erreurs
+            context = self.get_context_data(request, current_school)
+            context['fee_type_form'] = fee_type_form # Repasser le formulaire pour que les erreurs de champ soient visibles
+            return render(request, self.template_name, context)
 
-        return redirect(reverse_lazy('profiles:accounting_dashboard')) # Redirige après un POST réussi
+        # --- Gérer d'autres soumissions de formulaires (si vous en avez) ---
+        # elif 'another_form_submit_button_name' in request.POST:
+        #    ... votre logique pour l'autre formulaire ...
+
+        # Fallback générique si aucune action reconnue
+        messages.error(request, "Requête de soumission non reconnue ou problème inattendu.")
+        context = self.get_context_data(request, current_school)
+        return render(request, self.template_name, context)
+
+    
 def dashboard_charts_view(request):
     user_school = request.user.school # Supposons que votre CustomUser a un lien vers l'école
     
