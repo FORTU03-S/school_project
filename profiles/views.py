@@ -3345,7 +3345,9 @@ class PaymentCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         # Le formulaire est maintenant géré par get_form, pas besoin de le recréer ici
         return context
 
-class AccountingDashboardView(View):
+class AccountingDashboardView(View): # Gardons-le simple comme vous l'aviez, sans mixins de sécurité pour l'instant.
+                                     # Si vous souhaitez rajouter la sécurité (LoginRequiredMixin/UserPassesTestMixin),
+                                     # il faudra les ajouter ici et revoir le test_func.
     template_name = 'profiles/accounting_dashboard.html'
 
     def get_current_school(self, request):
@@ -3362,7 +3364,7 @@ class AccountingDashboardView(View):
         Prépare toutes les données nécessaires pour le contexte du template.
         """
         context = {}
-        
+
         # Récupération de la période académique active
         active_period = None
         if current_school:
@@ -3377,9 +3379,11 @@ class AccountingDashboardView(View):
         # Initialisation des formulaires avec school_id
         # Assurez-vous que les formulaires soient passés même si la requête est GET,
         # ou si une soumission de formulaire POST a échoué.
-        context['tuition_fee_form'] = TuitionFeeForm(school_id=current_school.id)
+        # CORRECTION ICI : Gérer le cas où current_school est None
+        context['tuition_fee_form'] = TuitionFeeForm(school_id=current_school.id if current_school else None)
         context['fee_type_form'] = FeeTypeForm()
-        context['payment_form'] = PaymentForm(school_id=current_school.id, user=request.user) # Le formulaire de paiement est ici mais il a sa propre vue normalement
+        # CORRECTION ICI : Gérer le cas où current_school est None
+        context['payment_form'] = PaymentForm(school_id=current_school.id if current_school else None, user=request.user)
 
 
         # Données pour les statistiques (à adapter à votre logique exacte)
@@ -3415,6 +3419,7 @@ class AccountingDashboardView(View):
             students_overpaid_count = 0
 
             students = Student.objects.filter(school=current_school, is_active=True).select_related('current_classe').prefetch_related('parents')
+            # CORRECTION : Utiliser filter pour fee_types pour qu'il soit un QuerySet et éviter des erreurs si vide.
             fee_types = FeeType.objects.filter(school=current_school) | FeeType.objects.filter(school__isnull=True)
             
             # Construire un dictionnaire de frais de scolarité pour un accès rapide
@@ -3486,6 +3491,7 @@ class AccountingDashboardView(View):
             context['payment_evolution_data'] = payment_evolution_data
 
             # Répartition des Sources de Revenu (par FeeType)
+            # CORRECTION : Utilisation de 'fee_type__name' car c'est une relation ForeignKey
             revenue_by_fee_type = Payment.objects.filter(
                 student__school=current_school,
                 academic_period=active_period,
@@ -3499,11 +3505,12 @@ class AccountingDashboardView(View):
             context['fee_type_data'] = fee_type_data
 
             # Frais de Scolarité Définis
+            # CORRECTION : Utilisation de 'classe__name' et 'fee_type__name' pour le tri
             context['tuition_fees_set'] = TuitionFee.objects.filter(
                 classe__school=current_school,
                 academic_period=active_period
             ).select_related('fee_type', 'classe').order_by('classe__name', 'fee_type__name')
-        
+            
             # CLASSES ET TYPES DE FRAIS POUR LES FILTRES
             context['classes'] = Classe.objects.filter(school=current_school).order_by('name')
             # Inclut les FeeTypes globaux (school__isnull=True) et ceux de l'école
@@ -3605,12 +3612,11 @@ class AccountingDashboardView(View):
                     'status_class': status_class,
                     'parents': list(student.parents.all())
                 })
-        
+            
         context['student_payment_status'] = filtered_students_status # Remplace la liste non filtrée
         context['selected_class_id'] = int(selected_class_id) if selected_class_id else None
         context['selected_payment_date'] = selected_payment_date
         context['selected_fee_type_id'] = int(selected_fee_type_id) if selected_fee_type_id else None
-
 
         return context
 
@@ -3626,66 +3632,42 @@ class AccountingDashboardView(View):
         return render(request, self.template_name, context)
 
     def post(self, request, *args, **kwargs):
-        current_school = request.user.school
+        current_school = self.get_current_school(request)
+        if not current_school:
+            messages.error(request, "Impossible de traiter la requête : vous n'êtes pas associé à une école.")
+            return redirect('core:home')
+
+        # Récupérer la période académique active AU DÉBUT DU POST
+        active_academic_period = AcademicPeriod.objects.filter(school=current_school, is_current=True).first()
+        if not active_academic_period:
+            active_academic_period = AcademicPeriod.objects.filter(school=current_school).order_by('-start_date').first()
+
+        if not active_academic_period:
+            messages.error(request, "Impossible de définir les frais : Aucune période académique active trouvée pour votre école. Veuillez en définir une.")
+            context = self.get_context_data(request, current_school)
+            context['tuition_fee_form'] = TuitionFeeForm(school_id=current_school.id)
+            context['fee_type_form'] = FeeTypeForm()
+            context['payment_form'] = PaymentForm(school_id=current_school.id, user=request.user)
+            return render(request, self.template_name, context)
 
         # --- Gérer la soumission du formulaire de définition des frais de scolarité ---
         if 'set_tuition_fee' in request.POST:
             tuition_fee_form = TuitionFeeForm(request.POST, school_id=current_school.id)
             
-            # Récupérer la période académique active de l'école
-            # Assurez-vous que votre logique pour déterminer la période active est solide.
-            active_academic_period = AcademicPeriod.objects.filter(school=current_school, is_current=True).first()
-
             if tuition_fee_form.is_valid():
-                # Vérification si une période académique active existe
-                if not active_academic_period:
-                    messages.error(request, "Impossible de définir les frais : Aucune période académique active trouvée pour votre école. Veuillez en définir une.")
-                    context = self.get_context_data(request, current_school)
-                    context['tuition_fee_form'] = tuition_fee_form
-                    return render(request, self.template_name, context)
-
                 try:
-                    # Créez une instance de TuitionFee mais ne la sauvegardez pas encore (commit=False)
-                    tuition_fee_instance = tuition_fee_form.save(commit=False)
-                    
-                    # Définissez les champs qui ne sont pas directement dans le formulaire POST
-                    tuition_fee_instance.academic_period = active_academic_period
-                    tuition_fee_instance.set_by = request.user # L'utilisateur actuellement connecté
-                    # Si votre modèle TuitionFee a un champ 'school', assurez-vous de le définir également
-                    # tuition_fee_instance.school = current_school 
-                    # (Remarque : Si TuitionFee est déjà lié via Classe qui est liée à School, ce n'est peut-être pas nécessaire
-                    # mais c'est plus sûr de le mettre si vous avez un champ 'school' directement sur TuitionFee)
+                    # N'utilisez PAS tuition_fee_form.save(commit=False) ici car update_or_create est plus approprié
+                    # et il gérera la création ou la mise à jour sans avoir besoin d'une instance préliminaire.
 
-                    tuition_fee_instance.save()
-                    messages.success(request, "Frais de scolarité définis/mis à jour avec succès!")
-                    return redirect('profiles:accounting_dashboard')
-                
-                except IntegrityError:
-                    # Capture spécifiquement l'erreur de contrainte unique
-                    messages.error(request, "Une définition de frais similaire (même type de frais, classe et période académique) existe déjà. Veuillez modifier ou mettre à jour l'entrée existante.")
-                    context = self.get_context_data(request, current_school)
-                    context['tuition_fee_form'] = tuition_fee_form
-                    return render(request, self.template_name, context)
-                except Exception as e:
-                    # Gérer d'autres erreurs inattendues
-                    messages.error(request, f"Une erreur inattendue est survenue lors de la définition des frais : {e}")
-                    context = self.get_context_data(request, current_school)
-                    context['tuition_fee_form'] = tuition_fee_form
-                    return render(request, self.template_name, context)
-            else:
-                # Le formulaire n'est pas valide (autres champs manquants ou erreurs de type)
-                messages.error(request, "Erreur lors de la définition des frais. Veuillez vérifier les informations saisies.")
-                context = self.get_context_data(request, current_school)
-                context['tuition_fee_form'] = tuition_fee_form 
-                # Les erreurs spécifiques aux champs seront maintenant affichées par le template
-                return render(request, self.template_name, context)    
+                    fee_type = tuition_fee_form.cleaned_data['fee_type']
+                    classe = tuition_fee_form.cleaned_data['classe']
+                    amount = tuition_fee_form.cleaned_data['amount']
 
-                try:
-                    # update_or_create gère la création ou la mise à jour si la combinaison existe
+                    # C'est ici que nous utilisons active_academic_period directement
                     tuition_fee, created = TuitionFee.objects.update_or_create(
                         fee_type=fee_type,
                         classe=classe,
-                        academic_period=active_period,
+                        academic_period=active_academic_period, # Utilisez la période active directement
                         defaults={'amount': amount, 'set_by': request.user}
                     )
                     if created:
@@ -3693,11 +3675,8 @@ class AccountingDashboardView(View):
                     else:
                         messages.info(request, f"Frais de '{fee_type.name}' pour la classe '{classe.name}' mis à jour à {amount} $.")
                     return redirect('profiles:accounting_dashboard')
-
+                
                 except IntegrityError:
-                    # Cette erreur est capturée si, pour une raison quelconque, la logique update_or_create échoue
-                    # ou si une contrainte unique non gérée par update_or_create est violée.
-                    # Pour unique_together, update_or_create gère déjà, mais c'est une bonne pratique de l'avoir
                     messages.error(request, "Erreur : Des frais sont déjà définis pour cette combinaison de type de frais, classe et période académique.")
                     context = self.get_context_data(request, current_school)
                     context['tuition_fee_form'] = tuition_fee_form
@@ -3707,16 +3686,19 @@ class AccountingDashboardView(View):
                     context = self.get_context_data(request, current_school)
                     context['tuition_fee_form'] = tuition_fee_form
                     return render(request, self.template_name, context)
-                else:
-                # Si le formulaire n'est pas valide, repassez-le avec les erreurs
-                    messages.error(request, "Erreur lors de la définition des frais. Veuillez vérifier les informations saisies.")
-                    context = self.get_context_data(request, current_school)
-                    context['tuition_fee_form'] = tuition_fee_form # Repasser le formulaire pour que les erreurs de champ soient visibles
-                    return render(request, self.template_name, context)
+            else:
+                print("======================================================")
+                print("ERREURS DU FORMULAIRE TUITIONFEEFORM (POST INVALIDE):")
+                print(tuition_fee_form.errors)
+                print("======================================================")
+                messages.error(request, "Erreur lors de la définition des frais. Veuillez vérifier les informations saisies.")
+                context = self.get_context_data(request, current_school)
+                context['tuition_fee_form'] = tuition_fee_form
+                return render(request, self.template_name, context)    
 
         # --- Gérer la soumission du formulaire d'ajout de type de frais ---
         elif 'add_fee_type' in request.POST:
-            fee_type_form = FeeTypeForm(request.POST) 
+            fee_type_form = FeeTypeForm(request.POST)
             if fee_type_form.is_valid():
                 new_fee_type = fee_type_form.save(commit=False)
                 new_fee_type.school = current_school # Assigner l'école actuelle
@@ -3725,10 +3707,15 @@ class AccountingDashboardView(View):
                     messages.success(request, f"Le type de frais '{new_fee_type.name}' a été ajouté avec succès.")
                     return redirect('profiles:accounting_dashboard')
                 except IntegrityError:
-                    messages.error(request, f"Un type de frais avec l'intitulé '{new_fee_type.name}' existe déjà. L'intitulé doit être unique.")
+                    messages.error(request, f"Un type de frais avec l'intitulé '{new_fee_type.name}' existe déjà pour votre école. L'intitulé doit être unique.")
                 except Exception as e:
                     messages.error(request, f"Une erreur inattendue est survenue lors de l'ajout du type de frais : {e}")
             else:
+                # Le formulaire FeeTypeForm n'est pas valide
+                print("======================================================")
+                print("ERREURS DU FORMULAIRE FEETYPEFORM (POST INVALIDE):")
+                print(fee_type_form.errors) # Débogage pour voir les erreurs de champ
+                print("======================================================")
                 messages.error(request, "Erreur lors de l'ajout du type de frais. Veuillez vérifier les informations saisies.")
 
             # Si le formulaire n'est pas valide ou qu'une erreur a eu lieu, repassez le formulaire avec les erreurs
@@ -3736,14 +3723,40 @@ class AccountingDashboardView(View):
             context['fee_type_form'] = fee_type_form # Repasser le formulaire pour que les erreurs de champ soient visibles
             return render(request, self.template_name, context)
 
-        # --- Gérer d'autres soumissions de formulaires (si vous en avez) ---
-        # elif 'another_form_submit_button_name' in request.POST:
-        #    ... votre logique pour l'autre formulaire ...
+        # --- Gérer la soumission du formulaire de PAIEMENT ---
+        # Si c'est le formulaire de paiement que vous avez des difficultés à déboguer.
+        elif 'submit_payment' in request.POST: # Assurez-vous que le bouton de soumission a name="submit_payment"
+            payment_form = PaymentForm(request.POST, school_id=current_school.id, user=request.user)
+            if payment_form.is_valid():
+                try:
+                    payment_instance = payment_form.save(commit=False)
+                    # Définissez les champs supplémentaires si nécessaire, par exemple academic_period
+                    payment_instance.academic_period = active_academic_period # Assurez-vous que active_academic_period est défini pour ce bloc
+                    payment_instance.save()
+                    messages.success(request, "Paiement enregistré avec succès!")
+                    return redirect('profiles:accounting_dashboard')
+                except IntegrityError:
+                    messages.error(request, "Un paiement similaire existe déjà ou une contrainte d'intégrité a été violée.")
+                except Exception as e:
+                    messages.error(request, f"Une erreur inattendue est survenue lors de l'enregistrement du paiement : {e}")
+            else:
+                # Le formulaire de paiement n'est pas valide
+                print("======================================================")
+                print("ERREURS DU FORMULAIRE PAYMENTFORM (POST INVALIDE):")
+                print(payment_form.errors) # Débogage pour voir les erreurs de champ
+                print("======================================================")
+                messages.error(request, "Erreur lors de l'enregistrement du paiement. Veuillez vérifier les informations saisies.")
+            
+            # Si le formulaire n'est pas valide ou qu'une erreur a eu lieu, repassez le formulaire avec les erreurs
+            context = self.get_context_data(request, current_school)
+            context['payment_form'] = payment_form # Repasser le formulaire pour que les erreurs de champ soient visibles
+            return render(request, self.template_name, context)
 
         # Fallback générique si aucune action reconnue
-        messages.error(request, "Requête de soumission non reconnue ou problème inattendu.")
+        messages.error(request, "Requête de soumission de formulaire non reconnue ou problème inattendu.")
         context = self.get_context_data(request, current_school)
         return render(request, self.template_name, context)
+
 
     
 def dashboard_charts_view(request):

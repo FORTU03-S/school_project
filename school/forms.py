@@ -260,7 +260,7 @@ class PaymentForm(forms.ModelForm):
 class TuitionFeeForm(forms.ModelForm):
     class Meta:
         model = TuitionFee
-        fields = ['fee_type', 'classe', 'academic_period', 'amount']
+        fields = ['fee_type', 'classe', 'amount']
     
     def __init__(self, *args, **kwargs):
         self.school_id = kwargs.pop('school_id', None)
@@ -269,7 +269,7 @@ class TuitionFeeForm(forms.ModelForm):
         if self.school_id:
             self.fields['fee_type'].queryset = FeeType.objects.filter(school=self.school_id) | FeeType.objects.filter(school__isnull=True)
             self.fields['classe'].queryset = Classe.objects.filter(school=self.school_id)
-            self.fields['academic_period'].queryset = AcademicPeriod.objects.filter(school=self.school_id) | AcademicPeriod.objects.filter(school__isnull=True)
+            #self.fields['academic_period'].queryset = AcademicPeriod.objects.filter(school=self.school_id) | AcademicPeriod.objects.filter(school__isnull=True)
 
 # Formulaire pour créer un nouveau type de frais (intitulé)
 class FeeTypeForm(forms.ModelForm):
