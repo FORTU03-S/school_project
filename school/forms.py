@@ -5,6 +5,7 @@ from .models import  Classe, Course, Enrollment, Grade, Attendance, AcademicPeri
 from profiles.models import CustomUser, UserRole, Student, Notification # Important: Assurez-vous que UserRole est importé ici
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from .models import Expense, ExpenseCategory
 
 # Formulaire pour ajouter/modifier un élève
 
@@ -280,3 +281,32 @@ class FeeTypeForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Vous pouvez ajouter ici des validations spécifiques si nécessaire
+        
+
+class ExpenseCategoryForm(forms.ModelForm):
+    class Meta:
+        model = ExpenseCategory
+        fields = ['name', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+class ExpenseForm(forms.ModelForm):
+    class Meta:
+        model = Expense
+        fields = ['category', 'amount', 'description', 'proof_of_payment']
+        widgets = {
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'proof_of_payment': forms.FileInput(attrs={'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        school = kwargs.pop('school', None)
+        super().__init__(*args, **kwargs)
+        if school:
+            # Filtre les catégories de dépenses pour l'école actuelle
+            self.fields['category'].queryset = ExpenseCategory.objects.filter(school=school).order_by('name')
+        else:
+            self.fields['category'].queryset = ExpenseCategory.objects.none()

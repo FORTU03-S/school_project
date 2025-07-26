@@ -27,14 +27,18 @@
         </div>
         {% endif %}
 
-        {# NOUVEAU BOUTON : Enregistrer un Paiement #}
+        {# NOUVEAU BOUTON : Enregistrer un Paiement, Gérer les Frais, et Dépenses #}
         <div class="d-flex justify-content-end mb-4">
             <a href="{% url 'profiles:payment_create' %}" class="btn btn-success btn-lg me-2">
                 <i class="bi bi-plus-circle-fill"></i> Enregistrer un Nouveau Paiement
             </a>
-            <a href="#manage-fees-section" class="btn btn-info btn-lg">
+            <a href="#manage-fees-section" class="btn btn-info btn-lg me-2">
                 <i class="bi bi-pencil-square"></i> Gérer les Frais
             </a>
+            {# NOUVEAU BOUTON POUR GÉRER LES DÉPENSES #}
+            <button type="button" class="btn btn-danger btn-lg" data-bs-toggle="modal" data-bs-target="#expenseModal">
+                <i class="bi bi-cash-coin"></i> Gérer les Dépenses
+            </button>
         </div>
 
         <div class="row g-4 mt-4">
@@ -186,7 +190,10 @@
                                             <a href="{% url 'profiles:payment_create' %}?student_id={{ status.student.id }}" class="btn btn-sm btn-outline-success" title="Enregistrer Paiement">
                                                 <i class="bi bi-plus-circle"></i> Payer
                                             </a>
-                                            {# Ajoutez d'autres actions ici, ex: voir historique, envoyer message #}
+                                            {# NOUVEAU BOUTON POUR VOIR LE PROFIL DE L'ENFANT #}
+                                            <a href="{% url 'profiles:student_profile' status.student.id %}" class="btn btn-sm btn-outline-primary ms-1" title="Voir Profil">
+                                                <i class="bi bi-person-fill"></i> Profil
+                                            </a>
                                         </td>
                                     </tr>
                                     {% empty %}
@@ -276,7 +283,6 @@
                                 <div class="alert alert-danger mt-3">{{ tuition_fee_form.non_field_errors }}</div>
                             {% endif %}
                             
-    
                             <button type="submit" name="set_tuition_fee" class="btn btn-warning"><i class="bi bi-cash"></i> Définir/Mettre à jour les Frais</button>
                         </form>
                         
@@ -364,6 +370,179 @@
 
     </div> {# End card #}
 </div> {# End container #}
+
+<div class="modal fade" id="expenseModal" tabindex="-1" aria-labelledby="expenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="expenseModalLabel"><i class="bi bi-cash-coin"></i> Gérer les Dépenses</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    {# Formulaire pour ajouter une dépense #}
+                    <div class="col-md-6">
+                        <h6 class="mb-3">Enregistrer une Nouvelle Dépense</h6>
+                        <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="{{ expense_form.category.id_for_label }}" class="form-label">{{ expense_form.category.label }}</label>
+                                {% if expense_form.category.errors %}
+                                    {% render_field expense_form.category class="form-select is-invalid" %}
+                                {% else %}
+                                    {% render_field expense_form.category class="form-select" %}
+                                {% endif %}
+                                {% for error in expense_form.category.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="mb-3">
+                                <label for="{{ expense_form.amount.id_for_label }}" class="form-label">{{ expense_form.amount.label }}</label>
+                                {% if expense_form.amount.errors %}
+                                    {% render_field expense_form.amount class="form-control is-invalid" %}
+                                {% else %}
+                                    {% render_field expense_form.amount class="form-control" %}
+                                {% endif %}
+                                {% for error in expense_form.amount.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="mb-3">
+                                <label for="{{ expense_form.description.id_for_label }}" class="form-label">{{ expense_form.description.label }}</label>
+                                {% if expense_form.description.errors %}
+                                    {% render_field expense_form.description class="form-control is-invalid" %}
+                                {% else %}
+                                    {% render_field expense_form.description class="form-control" %}
+                                {% endif %}
+                                {% for error in expense_form.description.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="mb-3">
+                                <label for="{{ expense_form.receipt_image.id_for_label }}" class="form-label">{{ expense_form.receipt_image.label }}</label>
+                                {% if expense_form.receipt_image.errors %}
+                                    {% render_field expense_form.receipt_image class="form-control is-invalid" %}
+                                {% else %}
+                                    {% render_field expense_form.receipt_image class="form-control" %}
+                                {% endif %}
+                                {% for error in expense_form.receipt_image.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            {% if expense_form.non_field_errors %}
+                                <div class="alert alert-danger mt-3">{{ expense_form.non_field_errors }}</div>
+                            {% endif %}
+                            <button type="submit" name="submit_expense" class="btn btn-danger"><i class="bi bi-plus-circle"></i> Enregistrer Dépense</button>
+                        </form>
+                    </div>
+
+                    {# Formulaire pour ajouter une catégorie de dépense #}
+                    <div class="col-md-6">
+                        <h6 class="mb-3">Ajouter une Catégorie de Dépense</h6>
+                        <form method="post" class="needs-validation" novalidate>
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="{{ expense_category_form.name.id_for_label }}" class="form-label">{{ expense_category_form.name.label }}</label>
+                                {% if expense_category_form.name.errors %}
+                                    {% render_field expense_category_form.name class="form-control is-invalid" %}
+                                {% else %}
+                                    {% render_field expense_category_form.name class="form-control" %}
+                                {% endif %}
+                                {% for error in expense_category_form.name.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="mb-3">
+                                <label for="{{ expense_category_form.description.id_for_label }}" class="form-label">{{ expense_category_form.description.label }}</label>
+                                {% if expense_category_form.description.errors %}
+                                    {% render_field expense_category_form.description class="form-control is-invalid" %}
+                                {% else %}
+                                    {% render_field expense_category_form.description class="form-control" %}
+                                {% endif %}
+                                {% for error in expense_category_form.description.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            {% if expense_category_form.non_field_errors %}
+                                <div class="alert alert-danger mt-3">{{ expense_category_form.non_field_errors }}</div>
+                            {% endif %}
+                            <button type="submit" name="add_expense_category" class="btn btn-secondary"><i class="bi bi-tags"></i> Ajouter Catégorie</button>
+                        </form>
+
+                        <h6 class="mb-3 mt-4">Dépenses en attente d'approbation</h6>
+                        {% if pending_expenses %}
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Catégorie</th>
+                                            <th>Montant</th>
+                                            <th>Demandé par</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for expense in pending_expenses %}
+                                            <tr>
+                                                <td>{{ expense.date_requested|date:"d M Y" }}</td>
+                                                <td>{{ expense.category.name }}</td>
+                                                <td>{{ expense.amount|floatformat:2 }} $</td>
+                                                <td>{{ expense.request_by.get_full_name }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">Aucune dépense en attente d'approbation.</p>
+                        {% endif %}
+
+                        <h6 class="mb-3 mt-4">10 dernières dépenses enregistrées</h6>
+                        {% if recent_expenses %}
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Catégorie</th>
+                                            <th>Montant</th>
+                                            <th>Statut</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for expense in recent_expenses %}
+                                            <tr>
+                                                <td>{{ expense.date_paid|default:expense.date_requested|date:"d M Y" }}</td>
+                                                <td>{{ expense.category.name }}</td>
+                                                <td>{{ expense.amount|floatformat:2 }} $</td>
+                                                <td><span class="badge 
+                                                    {% if expense.status == 'PENDING' %}bg-warning
+                                                    {% elif expense.status == 'APPROVED' %}bg-info
+                                                    {% elif expense.status == 'PAID' %}bg-success
+                                                    {% elif expense.status == 'REJECTED' %}bg-danger
+                                                    {% endif %}">{{ expense.get_status_display }}</span>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">Aucune dépense enregistrée récemment.</p>
+                        {% endif %}
+
+                        <h6 class="mb-3 mt-4">Répartition des Dépenses par Catégorie (Période Actuelle)</h6>
+                        <canvas id="expenseCategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -434,7 +613,7 @@
             }
             return colors;
         };
-        const backgroundColors = generateColors(revenueSourceLabels.length);
+        const backgroundColorsRevenue = generateColors(revenueSourceLabels.length);
 
 
         const revenueSourceCtx = document.getElementById('revenueSourceChart').getContext('2d');
@@ -445,7 +624,7 @@
                 datasets: [{
                     label: 'Montant ($)',
                     data: revenueSourceData,
-                    backgroundColor: backgroundColors,
+                    backgroundColor: backgroundColorsRevenue,
                     hoverOffset: 4
                 }]
             },
@@ -482,6 +661,65 @@
                 }
             }
         });
+
+        // Data for Expense Category Chart (Doughnut Chart) - Inside the modal
+        const expenseCategoryLabels = {{ expense_category_labels|safe }};
+        const expenseCategoryData = {{ expense_category_data|safe }};
+        const backgroundColorsExpenses = generateColors(expenseCategoryLabels.length); // Re-use color generation
+
+        const expenseCategoryCtx = document.getElementById('expenseCategoryChart').getContext('2d');
+        new Chart(expenseCategoryCtx, {
+            type: 'doughnut',
+            data: {
+                labels: expenseCategoryLabels,
+                datasets: [{
+                    label: 'Montant ($)',
+                    data: expenseCategoryData,
+                    backgroundColor: backgroundColorsExpenses,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        align: 'center',
+                        labels: {
+                            boxWidth: 20,
+                            padding: 15
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Répartition des Dépenses par Catégorie'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed) {
+                                    label += new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(context.parsed);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Logic to show form errors in modal if they exist after a POST request
+        // This makes sure the modal stays open and shows errors upon re-render
+        {% if expense_form.errors or expense_category_form.errors %}
+            var expenseModal = new bootstrap.Modal(document.getElementById('expenseModal'));
+            expenseModal.show();
+        {% endif %}
+
     });
 </script>
 {% endblock %}

@@ -588,3 +588,52 @@ class Payment(models.Model):
 # --- Si Notification est également dans school/models.py, assurez-vous qu'il est aussi après CustomUser etc. ---
 # Si Notification est dans profiles/models.py, assurez-vous qu'il importe FeeType si nécessaire.
 # ... (votre modèle Notification) ...
+
+from django.db import models
+from django.conf import settings
+# Importez vos modèles School, Classe, etc. si nécessaire
+from school.models import School # Remplacez par le chemin d'accès correct si besoin
+
+# Modèle pour les catégories de dépenses (ex: Fournitures de bureau, Salaire, Entretien)
+class ExpenseCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True, verbose_name="Nom de la catégorie")
+    description = models.TextField(blank=True, null=True, verbose_name="Description")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, null=True, blank=True)
+    is_active = models.BooleanField(default=True, verbose_name="Est active")
+
+    class Meta:
+        verbose_name = "Catégorie de Dépense"
+        verbose_name_plural = "Catégories de Dépenses"
+        unique_together = ('name', 'school') # Empêche d'avoir deux catégories du même nom dans une même école
+
+    def __str__(self):
+        return self.name
+
+# Modèle pour une dépense individuelle
+class Expense(models.Model):
+    EXPENSE_STATUS_CHOICES = [
+        ('PENDING', 'En attente d\'approbation'),
+        ('APPROVED', 'Approuvée'),
+        ('REJECTED', 'Rejetée'),
+        ('PAID', 'Payée'),
+    ]
+
+    request_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='requested_expenses', verbose_name="Demandé par")
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_expenses', verbose_name="Approuvé par")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, verbose_name="École")
+    category = models.ForeignKey(ExpenseCategory, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Catégorie")
+    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant")
+    description = models.TextField(verbose_name="Description")
+    date_requested = models.DateTimeField(auto_now_add=True, verbose_name="Date de la demande")
+    date_approved = models.DateTimeField(null=True, blank=True, verbose_name="Date d'approbation")
+    date_paid = models.DateTimeField(null=True, blank=True, verbose_name="Date de paiement")
+    status = models.CharField(max_length=20, choices=EXPENSE_STATUS_CHOICES, default='PENDING', verbose_name="Statut")
+    proof_of_payment = models.FileField(upload_to='expenses/proofs/', null=True, blank=True, verbose_name="Preuve de paiement")
+
+    class Meta:
+        verbose_name = "Dépense"
+        verbose_name_plural = "Dépenses"
+        ordering = ['-date_requested']
+
+    def __str__(self):
+        return f"Dépense #{self.id} - {self.description[:50]}"

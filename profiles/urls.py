@@ -3,7 +3,7 @@
 from django.urls import path, include
 from . import views
 from django.contrib.auth import views as auth_views # Importez les vues d'authentification de Django
-from .views import AccountingDashboardView
+from .views import AccountingDashboardView, StudentProfileView 
 
 app_name = 'profiles'
 
@@ -32,6 +32,7 @@ urlpatterns = [
     #path('parents/search_ajax/', views.search_parents_ajax, name='search_parents_ajax'),
     path('ajax/search_parents/', views.search_parents_ajax, name='search_parents_ajax'),
      path('payments/new/', views.PaymentCreateView.as_view(), name='payment_create'),
+     path('student/<int:pk>/', StudentProfileView.as_view(), name='student_profile'),
     # Si vous avez d'autres URL de dashboard ou des noms similaires, appliquez la même correction
     # Exemple si vous avez un 'admin-accounting-dashboard':
     path('accounting-dashboard/', views.AccountingDashboardView.as_view(), name='accounting_dashboard'),
